@@ -1,0 +1,38 @@
+## Interface: 20504
+## Title: CLM - Report This Edition
+## Notes: Enables Report This loot rules to CLM (Ni Karma based)
+## Author: Sithy
+## Version: v0.1.0
+## X-License: MIT
+# OptionalDependencies: LibStub, CallbackHandler-1.0, LibDeflate, LibSerialize, LibLogger, AceAddon-3.0
+## SavedVariables: CLM_DB, CLM_Logs, CLM_MinimapIcon
+## LoadOnDemand: 0
+## Dependencies: ClassicLootManager
+
+# Addon Core
+CLM_ReportThis.lua
+
+# Addon models
+Modules\AuctionManager\AuctionCommStructures.lua
+Modules\AuctionManager\AuctionConfiguration.lua
+Modules\BiddingManager\BiddingCommStructures.lua
+
+# Addon modules (Controllers)
+Modules\AuctionManager\AuctionManager.lua
+Modules\BiddingManager\BiddingManager.lua
+
+# Addon Options and GUIs (View)
+Modules\AuctionManager\GUI.lua
+Modules\BiddingManager\GUI.lua
+
+# Global
+Global\GlobalChatMessageHandlers.lua
+Modules\StandbyStagingManager\Overrides.lua
+Modules\LedgerManager\Overrides.lua
+
+# Integrations
+# Integrations\Integrations.lua
+# Integrations\Exporter.lua
+# Integrations\ExportConfiguration.lua
+# Integrations\GUI.lua
+
