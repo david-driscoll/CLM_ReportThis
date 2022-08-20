@@ -5,6 +5,7 @@ local UTILS = CLM.UTILS
 local CONSTANTS = CLM.CONSTANTS
 local ProfileManager = CLM.MODULES.ProfileManager
 local RosterManager = CLM.MODULES.RosterManager
+local GuildInfoListener = CLM.MODULES.GuildInfoListener
 
 function UTILS.VerifyObject(name, original, copy)
     for key, value in pairs(original) do
@@ -231,7 +232,7 @@ function UTILS.GetUpgradeCost(fromRosterOrRaidOrProfileOrPlayer, itemId)
         end
     end
 
-    return selectedRoster:GetConfiguration("upgradeCost")
+    return CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(selectedRoster, "upgradeCost")
 end
 
 function UTILS.GetBonusCost(fromRosterOrRaidOrProfileOrPlayer, player)
@@ -255,19 +256,63 @@ function UTILS.GetOffspecCost(fromRosterOrRaidOrProfileOrPlayer, itemId)
             return current.base
         end
     end
-    return getItemCost(selectedRoster, itemId, "base") or selectedRoster:GetConfiguration("offspecCost")
+    return getItemCost(selectedRoster, itemId, "base") or
+        CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(selectedRoster, "offspecCost")
 end
 
 function UTILS.GetMaxCost(fromRosterOrRaidOrProfileOrPlayer, itemId)
     local selectedRoster = getRoster(fromRosterOrRaidOrProfileOrPlayer)
     if not selectedRoster then return -1 end
 
-    return getItemCost(selectedRoster, itemId, "max") or selectedRoster:GetConfiguration("maxCost")
+    return getItemCost(selectedRoster, itemId, "max") or
+        CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(selectedRoster, "maxCost")
 end
 
 function UTILS.GetRollDifference(fromRosterOrRaidOrProfileOrPlayer)
     local selectedRoster = getRoster(fromRosterOrRaidOrProfileOrPlayer)
     if not selectedRoster then return -1 end
 
-    return selectedRoster:GetConfiguration("rollDifference")
+    return CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(selectedRoster, "rollDifference")
+end
+
+local function IdentifyRaidMembers(authorizedGuildMembers)
+    if not IsInRaid() then return end
+    -- Check raid
+    for i = 1, MAX_RAID_MEMBERS do
+        local name, _, _, _, _, _, _, online = GetRaidRosterInfo(i)
+        if name then
+            name = UTILS.RemoveServer(name)
+            if authorizedGuildMembers[name] then
+                authorizedGuildMembers[name].online = online
+                authorizedGuildMembers[name].isInMyRaid = true
+            end
+        end
+    end
+end
+
+function UTILS.GetAuthorizedGuildMembers(playerSituation)
+    if not playerSituation then playerSituation = {} end
+    local senders = {}
+    local ranks = GuildInfoListener:GetRanks()
+    for i = 1, GetNumGuildMembers() do
+        local name, rankName, rankIndex, _, _, _, _, _, isOnline, status = GetGuildRosterInfo(i)
+        rankIndex = rankIndex + 1
+        local rank = ranks[rankIndex]
+        if rank.isAssistant or rank.isManager then
+            name = UTILS.RemoveServer(name)
+            local value = {
+                name = name,
+                status = status,
+                rankIndex = rankIndex,
+                manager = rank.isManager,
+                assistant = rank.isAssistant,
+                online = isOnline,
+                isInMyRaid = false,
+                isInARaid = playerSituation[name]
+            }
+            senders[name] = value
+        end
+    end
+    IdentifyRaidMembers(senders)
+    return senders
 end

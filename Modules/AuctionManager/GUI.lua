@@ -636,7 +636,7 @@ function AuctionManagerGUI:Refresh()
 
         local tableData = {}
         local topPoints = AuctionManager:GetTopBid()
-        local rollDifference = self.raid:Roster():GetConfiguration("rollDifference")
+        local rollDifference = CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(self.raid:Roster(), "rollDifference")
         for name, data in pairs(AuctionManager:BidData()) do
             local profile = ProfileManager:GetProfileByName(name)
             if profile then

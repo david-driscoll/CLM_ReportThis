@@ -311,6 +311,7 @@ local function IdentifyRaidMembers(authorizedGuildMembers)
 end
 
 local function GetAuthorizedGuildMembers(playerSituation)
+    if not playerSituation then playerSituation = {} end
     local senders = {}
     local ranks = GuildInfoListener:GetRanks()
     for i = 1, GetNumGuildMembers() do
@@ -392,19 +393,14 @@ function GlboalChatMessageHandlers:Initialize()
                 self.authorizedSender = nil
                 self.playerRaidSituation[sender] = rawMessage.notify.isInRaid or false
 
-                if self.authorizedGuildMembers and self.authorizedGuildMembers[sender] then
-                    self.authorizedGuildMembers[sender].isInARaid = rawMessage.confirm.isInRaid or false
-                end
-
                 Comms:Send(DATA_COMM_PREFIX, { confirm = { isInRaid = IsInRaid() } },
                     CONSTANTS.COMMS.DISTRIBUTION.WHISPER, sender, CONSTANTS.COMMS.PRIORITY.ALERT)
-
             elseif rawMessage and rawMessage.confirm then
                 self.playerRaidSituation[sender] = rawMessage.confirm.isInRaid or false
+            end
 
-                if self.authorizedGuildMembers and self.authorizedGuildMembers[sender] then
-                    self.authorizedGuildMembers[sender].isInARaid = rawMessage.confirm.isInRaid or false
-                end
+            if self.authorizedGuildMembers and self.authorizedGuildMembers[sender] then
+                self.authorizedGuildMembers[sender].isInARaid = self.playerRaidSituation[sender]
             end
         end),
         (function()

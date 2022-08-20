@@ -5,16 +5,16 @@
 ## Version: v0.1.0
 ## X-License: MIT
 # OptionalDependencies: LibStub, CallbackHandler-1.0, LibDeflate, LibSerialize, LibLogger, AceAddon-3.0
-## SavedVariables: CLM_DB, CLM_Logs, CLM_MinimapIcon
 ## LoadOnDemand: 0
 ## Dependencies: ClassicLootManager
 
 # Addon Core
 CLM_ReportThis.lua
+Modules\LedgerManager\Overrides.lua
 
 # Addon models
 Modules\AuctionManager\AuctionCommStructures.lua
-Modules\AuctionManager\AuctionConfiguration.lua
+# Modules\AuctionManager\AuctionConfiguration.lua
 Modules\BiddingManager\BiddingCommStructures.lua
 
 # Addon modules (Controllers)
@@ -25,10 +25,15 @@ Modules\BiddingManager\BiddingManager.lua
 Modules\AuctionManager\GUI.lua
 Modules\BiddingManager\GUI.lua
 
+Modules\ReportThis\LedgerEntries.lua
+Modules\ReportThis\RosterConfiguration.lua
+Modules\ReportThis\RosterManager.lua
+
 # Global
 Global\GlobalChatMessageHandlers.lua
 Modules\StandbyStagingManager\Overrides.lua
-Modules\LedgerManager\Overrides.lua
+Modules\AutoDecay\AutoDecay.lua
+SettingsPush.lua
 
 # Integrations
 # Integrations\Integrations.lua
