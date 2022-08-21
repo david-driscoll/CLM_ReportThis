@@ -171,7 +171,7 @@ local function getRoster(fromRosterOrRaidOrProfileOrPlayer)
         -- assume player
         for _, roster in pairs(RosterManager:GetRosters()) do
             LOG:Info("Checking roster %s", roster:Name())
-            UTILS.DumpTable(fromRosterOrRaidOrProfileOrPlayer)
+            -- UTILS.DumpTable(fromRosterOrRaidOrProfileOrPlayer)
             if roster:IsProfileInRoster(ProfileManager:GetProfileByName(fromRosterOrRaidOrProfileOrPlayer)) then
                 selectedRoster = roster
                 break

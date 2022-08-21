@@ -405,9 +405,10 @@ function AuctionManager:RequestRollOff()
 end
 
 function AuctionManager:SendAuctionStart(rosterUid)
-    if self.auctionInProgress or not self:IAmTheAuctioneer() then return end
+    if self.auctionInProgress then return end
     self.auctionInProgress = true
     self.auctioneer = UTILS.whoami()
+    if not self:IAmTheAuctioneer() then return end
     for _, value in pairs(self.userResponses.bidData) do
         value.roll = nil
     end
@@ -431,8 +432,9 @@ function AuctionManager:SendAuctionStart(rosterUid)
 end
 
 function AuctionManager:SendAuctionEnd()
-    if not self.auctionInProgress or not self:IAmTheAuctioneer() then return end
+    if not self.auctionInProgress then return end
     self.auctionInProgress = false
+    if not self:IAmTheAuctioneer() then return end
     local message = AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.STOP_AUCTION, {})
     Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
 end
@@ -455,15 +457,17 @@ local function SendBidList()
 end
 
 function AuctionManager:SendRollStart()
-    if self.rollInProgress or not self:IAmTheAuctioneer() then return end
+    if self.rollInProgress then return end
     self.rollInProgress = true
+    if not self:IAmTheAuctioneer() then return end
     local message = AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.START_ROLL, {})
     Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
 end
 
 function AuctionManager:SendRollEnd()
-    if not self.rollInProgress or not self:IAmTheAuctioneer() then return end
+    if not self.rollInProgress then return end
     self.rollInProgress = false
+    if not self:IAmTheAuctioneer() then return end
     local message = AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.STOP_ROLL, {})
     Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
 end
@@ -862,7 +866,7 @@ function AuctionManager:GetEligibleBids()
             or data.type == CONSTANTS.AUCTION_COMM.BID_BONUS
 
         if (data.type ~= CONSTANTS.AUCTION_COMM.BID_PASS)
-            and (topBid.points - data.points) <= rollDifference
+            and (tonumber(topBid.points) - tonumber(data.points)) <= rollDifference
             and (minEligableBid < 0 or data.points > 0)
         then
             table.insert(bids, data)
@@ -886,7 +890,7 @@ function AuctionManager:GetEligibleBids()
 end
 
 function AuctionManager:GetRollDifference()
-    return self.raid:Roster():GetConfiguration("rollDifference")
+    return CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(self.raid:Roster(), "rollDifference")
 end
 
 function AuctionManager:Passes()

@@ -347,7 +347,7 @@ local function GetAuthorizedSender(authorizedGuildMembers)
     end
 
     table.sort(senders, (function(first, second) return createKey(first) < createKey(second) end))
-    UTILS.DumpTable(senders)
+    -- UTILS.DumpTable(senders)
 
     return senders[1].name
 end

@@ -4,4 +4,4 @@ param (
     $version
 )
 Remove-Item *.zip
-Compress-Archive . -DestinationPath $version-bcc.zip
+Compress-Archive . -DestinationPath CLM_ReportThis-$version-bcc.zip

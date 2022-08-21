@@ -17,6 +17,10 @@ Modules\AuctionManager\AuctionCommStructures.lua
 # Modules\AuctionManager\AuctionConfiguration.lua
 Modules\BiddingManager\BiddingCommStructures.lua
 
+Modules\ReportThis\LedgerEntries.lua
+Modules\ReportThis\RosterConfiguration.lua
+Modules\ReportThis\RosterManager.lua
+
 # Addon modules (Controllers)
 Modules\AuctionManager\AuctionManager.lua
 Modules\BiddingManager\BiddingManager.lua
@@ -24,10 +28,6 @@ Modules\BiddingManager\BiddingManager.lua
 # Addon Options and GUIs (View)
 Modules\AuctionManager\GUI.lua
 Modules\BiddingManager\GUI.lua
-
-Modules\ReportThis\LedgerEntries.lua
-Modules\ReportThis\RosterConfiguration.lua
-Modules\ReportThis\RosterManager.lua
 
 # Global
 Global\GlobalChatMessageHandlers.lua
