@@ -325,7 +325,7 @@ function BiddingManagerGUI:Create()
     f:SetWidth(BASE_WIDTH)
 
     -- f.frame:SetMinResize(200, 120)
-    f:SetHeight(EXTENDED_HEIGHT)
+    f:SetHeight(BASE_HEIGHT)
     self.top = f
     UTILS.MakeFrameCloseOnEsc(f.frame, "CLM_Bidding_GUI")
     self.bid = 0
@@ -378,6 +378,9 @@ function BiddingManagerGUI:BuildBar(duration)
     local note = ""
     if self.auctionInfo:Note():len() > 0 then
         note = "(" .. self.auctionInfo:Note() .. ")"
+        self.top:SetHeight(EXTENDED_HEIGHT)
+    else
+        self.top:SetHeight(BASE_HEIGHT)
     end
     self.bar:SetLabel(self.auctionInfo:ItemLink() .. " " .. note)
     self.bar:SetDuration(duration)
