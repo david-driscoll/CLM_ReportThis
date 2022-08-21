@@ -12,7 +12,6 @@ local ProfileManager = MODULES.ProfileManager
 local RosterManager = MODULES.RosterManager
 local RaidManager = MODULES.RaidManager
 local GuildInfoListener = MODULES.GuildInfoListener
-local LedgerManager = MODULES.LedgerManager
 local Comms = MODULES.Comms
 
 local GlboalChatMessageHandlers = {}
@@ -63,8 +62,7 @@ local function HandleBid(event, playerName, command, secondParam)
     else
         local numericValue = tonumber(value)
         if type(numericValue) == "number" then
-            bidType = UTILS.InferBidType(numericValue,
-                UTILS.GetCurrentPoints(RaidManager:GetRaid(), playerName))
+            bidType = AuctionManager:InferBidType(numericValue)
             accept, reason = AuctionManager:UpdateBid(playerName, bidType)
         end
     end

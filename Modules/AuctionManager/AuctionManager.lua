@@ -744,7 +744,7 @@ function AuctionManager:ValidateBid(name, bid)
     if bid == CONSTANTS.AUCTION_COMM.BID_OFFSPEC then return true end
 
     local currentPoints = UTILS.GetCurrentPoints(self.raid, name)
-    local bidType = UTILS.InferBidType(bid, currentPoints)
+    local bidType = AuctionManager:InferBidType(bid)
     if not bidType then return false end
     if bidType == CONSTANTS.AUCTION_COMM.BID_UPGRADE then currentPoints = self:GetUpgradeCost() end
 
@@ -839,7 +839,7 @@ function AuctionManager:UpdateBidsInternal(name, bid)
         return false
     end
 
-    local bidType = UTILS.InferBidType(bid, points)
+    local bidType = AuctionManager:InferBidType(bid)
     if bidType then
         if bidType == CONSTANTS.AUCTION_COMM.BID_BONUS then
             if points <= upgradeCost then bidType = CONSTANTS.AUCTION_COMM.BID_UPGRADE end
@@ -857,6 +857,24 @@ function AuctionManager:UpdateBidsInternal(name, bid)
     self.userResponses.passes[name] = nil
 
     return false
+end
+
+function AuctionManager:InferBidType(bid)
+    if not bid then return nil end
+    bid = tonumber(bid)
+
+    -- <= 0
+    if bid <= self.values[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.OFFSPEC] then
+        return CONSTANTS.AUCTION_COMM.BID_OFFSPEC
+    end
+
+    -- 1 <-> 25
+    if bid <= self.values[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.UPGRADE] then
+        return CONSTANTS.AUCTION_COMM.BID_UPGRADE
+    end
+
+    -- > 26
+    return CONSTANTS.AUCTION_COMM.BID_BONUS
 end
 
 function AuctionManager:Bids()

@@ -138,32 +138,6 @@ function UTILS.CreatePattern(pattern)
 
 end
 
-function UTILS.InferBidType(bid, currentPoints)
-    if not bid then return nil end
-    bid = tonumber(bid)
-
-    if bid == 0 then
-        -- We remove from the bids list but add to pass list
-        return CONSTANTS.AUCTION_COMM.BID_OFFSPEC
-    end
-
-    if currentPoints < 0 then
-        -- We remove from the bids list but add to pass list
-        return CONSTANTS.AUCTION_COMM.BID_UPGRADE
-    end
-
-    if bid >= currentPoints then
-        -- We remove from the bids list but add to pass list
-        return CONSTANTS.AUCTION_COMM.BID_BONUS
-    end
-
-    if bid < currentPoints then
-        return CONSTANTS.AUCTION_COMM.BID_UPGRADE
-    end
-
-    return nil
-end
-
 local function getRoster(fromRosterOrRaidOrProfileOrPlayer)
     local selectedRoster
     if UTILS.typeof(fromRosterOrRaidOrProfileOrPlayer, CLM.MODELS.Raid) then
