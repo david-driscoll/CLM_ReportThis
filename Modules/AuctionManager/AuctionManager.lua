@@ -206,7 +206,7 @@ function AuctionManager:GetAutoTrade()
 end
 
 -- We pass configuration separately as it can be overriden on per-auction basis
-function AuctionManager:StartAuction(itemId, itemLink, itemSlot, _, _, note, raid, configuration)
+function AuctionManager:StartAuction(itemId, itemLink, itemSlot, values, note, raid, configuration)
     LOG:Trace("AuctionManager:StartAuction()")
     if self.auctionInProgress then
         LOG:Warning("AuctionManager:StartAuction(): Auction in progress")
@@ -234,6 +234,13 @@ function AuctionManager:StartAuction(itemId, itemLink, itemSlot, _, _, note, rai
         return false
     end
     self.itemLink = itemLink
+    for key, _ in pairs(CLM.CONSTANTS.SLOT_VALUE_TIERS) do
+        if not tonumber(values[key]) then
+            LOG:Warning("AuctionManager:StartAuction(): invalid value [%s] for [%s]", tostring(values[key]),
+                tostring(key))
+            return false
+        end
+    end
     if not typeof(configuration, RosterConfiguration) then
         LOG:Warning("AuctionManager:StartAuction(): Invalid roster configuration object")
         return false
@@ -248,14 +255,29 @@ function AuctionManager:StartAuction(itemId, itemLink, itemSlot, _, _, note, rai
         LOG:Warning("AuctionManager:StartAuction(): Very short (below 10s) auction time")
     end
     self.auctionTime = auctionTime
-    self.baseValue = 0
-    self.maxValue = 1000
     if self.auctionTime <= 0 then
         LOG:Warning("AuctionManager:StartAuction(): Auction time must be greater than 0 seconds")
         return false
     end
-    self.allowNegativeBidders = configuration:Get("allowNegativeBidders")
-    self.allowNegativeStandings = configuration:Get("allowNegativeStandings")
+
+    self.itemValueMode = configuration:Get("itemValueMode")
+    if self.itemValueMode == CONSTANTS.ITEM_VALUE_MODE.ASCENDING then
+        if values[CONSTANTS.SLOT_VALUE_TIER.MAX] >= 0 and
+            values[CONSTANTS.SLOT_VALUE_TIER.BASE] > values[CONSTANTS.SLOT_VALUE_TIER.MAX] then -- TODO
+            LOG:Warning("AuctionManager:StartAuction(): base value must be smaller or equal to max values")
+            return false
+        end
+    end
+    self.values = values
+    self.acceptedTierValues = {}
+    for _, val in pairs(self.values) do
+        self.acceptedTierValues[val] = true
+    end
+
+    self.minimumPoints = configuration:Get("minimumPoints")
+    self.allowNegativeBidders = configuration:Get("minimumPoints") < 0
+    self.allowBelowMinStandings = configuration:Get("allowBelowMinStandings")
+
     -- Auctioning
     -- Start Auction Messages
     self.note = note
@@ -265,6 +287,23 @@ function AuctionManager:StartAuction(itemId, itemLink, itemSlot, _, _, note, rai
         if note:len() > 0 then
             auctionMessage = auctionMessage .. " (" .. tostring(note) .. ")"
         end
+
+        -- if self.itemValueMode == CONSTANTS.ITEM_VALUE_MODE.TIERED then
+        --     local tiers = ""
+        --     for _,key in ipairs(CLM.CONSTANTS.SLOT_VALUE_TIERS_ORDERED) do
+        --         tiers = tiers .. tostring(values[key]) .. ", "
+        --     end
+        --     tiers = UTILS.Trim(tiers)
+        --     auctionMessage = auctionMessage .. string.format(CLM.L["Bid tiers: %s."], tiers)  .. " "
+        -- else
+        --     if values[CONSTANTS.SLOT_VALUE_TIER.BASE] >= 0 then
+        --         auctionMessage = auctionMessage .. string.format(CLM.L["Minimum bid: %s."] .. " ", tostring(values[CONSTANTS.SLOT_VALUE_TIER.BASE]))
+        --     end
+        --     if values[CONSTANTS.SLOT_VALUE_TIER.MAX] >= 0 then
+        --         auctionMessage = auctionMessage .. string.format(CLM.L["Maximum bid: %s."] .. " ", tostring(values[CONSTANTS.SLOT_VALUE_TIER.MAX]))
+        --     end
+        -- end
+
         -- Max 2 raid warnings are displayed at the same time
         UTILS.SendChatMessage(auctionMessage, "RAID_WARNING")
         auctionMessage = ""
@@ -286,11 +325,14 @@ function AuctionManager:StartAuction(itemId, itemLink, itemSlot, _, _, note, rai
     -- AntiSnipe settings
     self.antiSnipeLimit = (self.antiSnipe > 0) and (CONSTANTS.AUCTION_TYPES_OPEN[self.auctionType] and 100 or 3) or 0
 
+    -- if values are different than current (or default if no override) item value we will need to update the config
+    RosterManager:SetRosterItemValues(self.raid:Roster(), itemId, values)
+
     -- calculate server end time
     self.auctionEndTime = GetServerTime() + self.auctionTime
     self.auctionTimeLeft = self.auctionEndTime
     -- minimal increment
-    self.minimalIncrement = self.raid:Roster():GetConfiguration("minimalIncrement")
+    self.minimalIncrement = self.raid:Roster():GetConfiguration("minimalIncrement") -- workaround for open bid to allow 0 bid
     -- Set auction in progress
     -- Send auction information
     self:SendAuctionStart(self.raid:Roster():UID())
@@ -417,8 +459,7 @@ function AuctionManager:SendAuctionStart(rosterUid)
         AuctionCommStartAuction:New(
             self.auctionType,
             self.itemValueMode,
-            self.baseValue,
-            self.maxValue,
+            self.values,
             self.itemLink,
             self.auctionTime,
             self.auctionEndTime,

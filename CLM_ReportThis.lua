@@ -7,6 +7,16 @@ local ProfileManager = CLM.MODULES.ProfileManager
 local RosterManager = CLM.MODULES.RosterManager
 local GuildInfoListener = CLM.MODULES.GuildInfoListener
 
+if not CONSTANTS.REPORTTHIS then
+    CONSTANTS.REPORTTHIS = {}
+end
+
+CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER = {
+    OFFSPEC = CONSTANTS.SLOT_VALUE_TIER.BASE,
+    UPGRADE = CONSTANTS.SLOT_VALUE_TIER.SMALL,
+    BONUS   = CONSTANTS.SLOT_VALUE_TIER.LARGE
+}
+
 function UTILS.VerifyObject(name, original, copy)
     for key, value in pairs(original) do
         if not copy[key] then
@@ -188,7 +198,7 @@ end
 
 local function getItemCost(selectedRoster, itemId, key)
     if itemId then
-        local current = selectedRoster:GetItemValue(itemId)
+        local current = selectedRoster:GetItemValues(itemId)
         if current[key] > 0 then
             return current[key]
         end
@@ -225,14 +235,8 @@ function UTILS.GetUpgradeCost(fromRosterOrRaidOrProfileOrPlayer, itemId)
     local selectedRoster = getRoster(fromRosterOrRaidOrProfileOrPlayer)
     if not selectedRoster then return -1 end
 
-    if itemId then
-        local current = selectedRoster:GetItemValue(itemId)
-        if current.base > 0 then
-            return current.base
-        end
-    end
-
-    return CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(selectedRoster, "upgradeCost")
+    return getItemCost(selectedRoster, itemId, CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.UPGRADE) or
+        CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(selectedRoster, "upgradeCost")
 end
 
 function UTILS.GetBonusCost(fromRosterOrRaidOrProfileOrPlayer, player)
@@ -250,13 +254,7 @@ function UTILS.GetOffspecCost(fromRosterOrRaidOrProfileOrPlayer, itemId)
     local selectedRoster = getRoster(fromRosterOrRaidOrProfileOrPlayer)
     if not selectedRoster then return -1 end
 
-    if itemId then
-        local current = selectedRoster:GetItemValue(itemId)
-        if current.base > 0 then
-            return current.base
-        end
-    end
-    return getItemCost(selectedRoster, itemId, "base") or
+    return getItemCost(selectedRoster, itemId, CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.OFFSPEC) or
         CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(selectedRoster, "offspecCost")
 end
 
@@ -264,7 +262,7 @@ function UTILS.GetMaxCost(fromRosterOrRaidOrProfileOrPlayer, itemId)
     local selectedRoster = getRoster(fromRosterOrRaidOrProfileOrPlayer)
     if not selectedRoster then return -1 end
 
-    return getItemCost(selectedRoster, itemId, "max") or
+    return getItemCost(selectedRoster, itemId, CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.BONUS) or
         CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(selectedRoster, "maxCost")
 end
 

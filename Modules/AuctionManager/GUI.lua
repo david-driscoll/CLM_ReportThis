@@ -132,6 +132,7 @@ function AuctionManagerGUI:Initialize()
         HookBagSlots()
     end
     self.hookedSlots = { wow = {}, elv = {} }
+    self.values = {}
     EventManager:RegisterWoWEvent({ "LOOT_OPENED" }, (function(...) self:HandleLootOpenedEvent() end))
     EventManager:RegisterWoWEvent({ "LOOT_CLOSED" }, (function(...) self:HandleLootClosedEvent() end))
     EventManager:RegisterEvent(EVENT_FILL_AUCTION_WINDOW, function(event, data)
@@ -256,17 +257,14 @@ function AuctionManagerGUI:GenerateAuctionOptions()
     end
 
     self.note = ""
-
-    if RaidManager:IsInActiveRaid() then
+    self.values = {}
+    if RaidManager:IsInRaid() then
         self.raid = RaidManager:GetRaid()
         self.roster = self.raid:Roster()
         if self.roster then
             self.configuration:Copy(self.roster.configuration)
-            local v = self.roster:GetItemValue(self.itemId)
+            self.values = UTILS.ShallowCopy(self.roster:GetItemValues(self.itemId))
         end
-
-        self.base = AuctionManager:GetUpgradeCost(self.raid, self.itemId)
-        self.max = AuctionManager:GetMaxCost(self.raid, self.itemId)
     end
 
     local o = {
@@ -566,8 +564,8 @@ end
 
 function AuctionManagerGUI:StartAuction()
     self:ClearSelectedBid()
-    AuctionManager:StartAuction(self.itemId, self.itemLink, self.itemEquipLoc, self.base, self.max, self.note, self.raid
-        , self.configuration)
+    AuctionManager:StartAuction(self.itemId, self.itemLink, self.itemEquipLoc, self.values, self.note, self.raid,
+        self.configuration)
 end
 
 function AuctionManagerGUI:UpdateAwardValue()
@@ -629,10 +627,7 @@ function AuctionManagerGUI:Refresh()
         self.roster = self.raid:Roster()
         if self.roster then
             self.configuration:Copy(self.roster.configuration)
-            local v = self.roster:GetItemValue(self.itemId)
         end
-        self.base = AuctionManager:GetUpgradeCost(self.raid, self.itemId)
-        self.max = AuctionManager:GetMaxCost(self.raid, self.itemId)
 
         local tableData = {}
         local topPoints = AuctionManager:GetTopBid()

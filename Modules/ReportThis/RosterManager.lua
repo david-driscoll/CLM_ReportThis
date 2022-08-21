@@ -59,40 +59,40 @@ function RosterManagerOptions:Initialize()
     oldRosterManagerOptionsInitialize(self)
 
     UTILS.mergeDictsInline(self.handlers, {
-        upgrade_cost_get = (function(name)
+        auction_upgrade_cost_get = (function(name)
             return tostring(GetRosterOption(name, "upgradeCost"))
         end),
-        upgrade_cost_set = (function(name, value)
+        auction_upgrade_cost_set = (function(name, value)
             SetRosterOption(name, "upgradeCost", value)
         end),
-        offspec_cost_get = (function(name)
+        auction_offspec_cost_get = (function(name)
             return tostring(GetRosterOption(name, "offspecCost"))
         end),
-        offspec_cost_set = (function(name, value)
+        auction_offspec_cost_set = (function(name, value)
             SetRosterOption(name, "offspecCost", value)
         end),
-        max_cost_get = (function(name)
+        auction_max_cost_get = (function(name)
             return tostring(GetRosterOption(name, "maxCost"))
         end),
-        max_cost_set = (function(name, value)
+        auction_max_cost_set = (function(name, value)
             SetRosterOption(name, "maxCost", value)
         end),
-        roll_difference_get = (function(name)
+        auction_roll_difference_get = (function(name)
             return tostring(GetRosterOption(name, "rollDifference"))
         end),
-        roll_difference_set = (function(name, value)
+        auction_roll_difference_set = (function(name, value)
             SetRosterOption(name, "rollDifference", value)
         end),
-        auto_decay_get = (function(name)
+        auction_auto_decay_get = (function(name)
             return GetRosterOption(name, "autoDecay")
         end),
-        auto_decay_set = (function(name, value)
+        auction_auto_decay_set = (function(name, value)
             SetRosterOption(name, "autoDecay", value)
         end),
-        auto_decay_percent_get = (function(name)
+        auction_auto_decay_percent_get = (function(name)
             return tostring(GetRosterOption(name, "autoDecayPercent"))
         end),
-        auto_decay_percent_set = (function(name, value)
+        auction_auto_decay_percent_set = (function(name, value)
             SetRosterOption(name, "autoDecayPercent", value)
         end),
     })
@@ -141,9 +141,9 @@ local oldRosterManagerOptionsGenerateRosterOptions = RosterManagerOptions.Genera
 function RosterManagerOptions:GenerateRosterOptions(name)
     local o = oldRosterManagerOptionsGenerateRosterOptions(self, name)
 
-    local orderStart = o.args.copy_header.order - 10
+    local orderStart = 100
 
-    UTILS.mergeDictsInline(o.args, {
+    UTILS.mergeDictsInline(o.args.auction.args, {
 
         rt_header = {
             name = CLM.L["Report This Setings"],

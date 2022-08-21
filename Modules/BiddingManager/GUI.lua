@@ -32,7 +32,9 @@ local guiOptions = {
     args = {}
 }
 
-local BASE_WIDTH = 505
+local BASE_WIDTH      = 300
+local BASE_HEIGHT     = 175
+local EXTENDED_HEIGHT = 200
 
 local REGISTRY = "clm_bidding_manager_gui_options"
 
@@ -175,6 +177,8 @@ function BiddingManagerGUI:GenerateAuctionOptions()
         -- Force caching loot from server
         GetItemInfo(itemId)
     end
+    local shortItemLink = "item:" .. tostring(itemId)
+
     local o = {
         item = {
             inline = true,
@@ -186,16 +190,16 @@ function BiddingManagerGUI:GenerateAuctionOptions()
                     type = "description",
                     control = "InteractiveLabel",
                     image = icon,
-                    itemLink = "item:" .. tostring(itemId),
-                    width = 0.5,
+                    itemLink = shortItemLink,
+                    width = 0.25,
                     order = 1
                 },
                 item = {
                     name = itemLink or "",
                     type = "description",
                     control = "InteractiveLabel",
-                    itemLink = "item:" .. tostring(itemId),
-                    width = 2.2,
+                    itemLink = shortItemLink,
+                    width = 1,
                     order = 2,
                 },
             },
@@ -218,7 +222,7 @@ function BiddingManagerGUI:GenerateAuctionOptions()
                         -- maybe disable if negative
                         return not self.canUseItem
                     end),
-                    width = 0.60,
+                    width = 0.5,
                     order = 5
                 },
                 upgrade = {
@@ -233,7 +237,7 @@ function BiddingManagerGUI:GenerateAuctionOptions()
                         -- maybe disable if negative
                         return not self.canUseItem
                     end),
-                    width = 0.60,
+                    width = 0.5,
                     order = 6
                 },
                 offspec = {
@@ -248,9 +252,18 @@ function BiddingManagerGUI:GenerateAuctionOptions()
                         -- maybe disable if negative
                         return not self.canUseItem
                     end),
-                    width = 0.60,
+                    width = 0.5,
                     order = 7
                 },
+            },
+            order = 100
+        },
+
+        passButtons = {
+            type = "group",
+            inline = true,
+            name = "",
+            args = {
                 pass = {
                     name = CLM.L["Pass"],
                     desc = (function()
@@ -267,7 +280,7 @@ function BiddingManagerGUI:GenerateAuctionOptions()
                         -- maybe disable if negative
                         return not self.canUseItem
                     end),
-                    width = 0.43,
+                    width = 0.4,
                     order = 9
                 },
                 cancel = {
@@ -286,7 +299,7 @@ function BiddingManagerGUI:GenerateAuctionOptions()
                     order = 10
                 },
             },
-            order = 100
+            order = 101
         }
     }
 
@@ -312,7 +325,7 @@ function BiddingManagerGUI:Create()
     f:SetWidth(BASE_WIDTH)
 
     -- f.frame:SetMinResize(200, 120)
-    f:SetHeight(175)
+    f:SetHeight(EXTENDED_HEIGHT)
     self.top = f
     UTILS.MakeFrameCloseOnEsc(f.frame, "CLM_Bidding_GUI")
     self.bid = 0
@@ -360,7 +373,8 @@ end
 
 function BiddingManagerGUI:BuildBar(duration)
     LOG:Trace("BiddingManagerGUI:BuildBar()")
-    self.bar = LibCandyBar:New("Interface\\AddOns\\ClassicLootManager\\Media\\Bars\\AceBarFrames.tga", 435, 25)
+    self.bar = LibCandyBar:New("Interface\\AddOns\\ClassicLootManager\\Media\\Bars\\AceBarFrames.tga", --[[435--]]
+        BASE_WIDTH, 25)
     local note = ""
     if self.auctionInfo:Note():len() > 0 then
         note = "(" .. self.auctionInfo:Note() .. ")"
@@ -376,6 +390,13 @@ function BiddingManagerGUI:BuildBar(duration)
     self.bar:SetColor(0, 0.80, 0, 1)
     -- self.bar:SetParent(self.top.frame) -- makes the bar disappear
     self.bar:SetPoint("CENTER", self.top.frame, "TOP", 0, 25)
+
+    self.bar.candyBarBar:SetScript("OnMouseDown", function(_, button)
+        if button == 'LeftButton' then
+            self:Toggle()
+        end
+    end)
+
     self.bar:Start(self.auctionInfo:Time())
 end
 
@@ -427,6 +448,7 @@ function BiddingManagerGUI:StartAuction(show, auctionInfo)
     BiddingManagerGUI:UpdateStatusText()
 
     if not show then return end
+    self:Refresh()
 
     if C_Item.IsItemDataCachedByID(self.auctionInfo:ItemLink()) then
         EvaluateItemUsability(self)
