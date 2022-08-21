@@ -394,7 +394,7 @@ end
 function BiddingManagerGUI:UpdateStatusText()
     local statusText = ""
     local myProfile = ProfileManager:GetMyProfile()
-    if myProfile then
+    if myProfile and self.auctionInfo then
         local roster = RosterManager:GetRosterByUid(self.auctionInfo:RosterUid())
         if roster then
             self.auctionType = roster:GetConfiguration("auctionType")

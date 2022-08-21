@@ -39,8 +39,6 @@ local function GetSettings(obj)
 end
 
 function SettingsPush:Initialize()
-    UTILS.DumpTable(GetSettings(ConfigManager.options[CLM.CONSTANTS.CONFIGS.GROUP.GLOBAL].args))
-
     Comms:Register(DATA_COMM_PREFIX,
         (function(rawMessage, distribution, sender)
             local options = ConfigManager.options[CLM.CONSTANTS.CONFIGS.GROUP.GLOBAL].args
