@@ -12,9 +12,17 @@ if not CONSTANTS.REPORTTHIS then
 end
 
 CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER = {
-    OFFSPEC = CONSTANTS.SLOT_VALUE_TIER.BASE,
-    UPGRADE = CONSTANTS.SLOT_VALUE_TIER.SMALL,
-    BONUS   = CONSTANTS.SLOT_VALUE_TIER.LARGE
+    OFFSPEC  = CONSTANTS.SLOT_VALUE_TIER.BASE,
+    DUALSPEC = CONSTANTS.SLOT_VALUE_TIER.SMALL,
+    UPGRADE  = CONSTANTS.SLOT_VALUE_TIER.MEDIUM,
+    BONUS    = CONSTANTS.SLOT_VALUE_TIER.MAX
+}
+
+CONSTANTS.REPORTTHIS.BID_TYPE = {
+    OFFSPEC = CONSTANTS.BID_TYPE[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.OFFSPEC],
+    DUALSPEC = CONSTANTS.BID_TYPE[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.DUALSPEC],
+    UPGRADE = CONSTANTS.BID_TYPE[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.UPGRADE],
+    BONUS = CONSTANTS.BID_TYPE[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.BONUS],
 }
 
 function UTILS.VerifyObject(name, original, copy)
@@ -196,8 +204,8 @@ function UTILS.CalculateItemCost(fromRosterOrRaidOrProfileOrPlayer, bidType, poi
     local selectedRoster = getRoster(fromRosterOrRaidOrProfileOrPlayer)
     local upgradeCost = UTILS.GetUpgradeCost(selectedRoster, itemId)
     local offspecCost = UTILS.GetOffspecCost(selectedRoster, itemId)
-    if bidType == CONSTANTS.AUCTION_COMM.BID_OFFSPEC or bidType == CONSTANTS.AUCTION_COMM.BID_PASS then return offspecCost end
-    if bidType == CONSTANTS.AUCTION_COMM.BID_UPGRADE then return upgradeCost end
+    if bidType == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or bidType == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC then return offspecCost end
+    if bidType == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE then return upgradeCost end
 
     return UTILS.round(
         math.min(UTILS.GetMaxCost(selectedRoster, itemId), math.max(upgradeCost * 2, points / 2)),
@@ -220,7 +228,7 @@ function UTILS.GetBonusCost(fromRosterOrRaidOrProfileOrPlayer, player)
     local selectedRoster = getRoster(fromRosterOrRaidOrProfileOrPlayer)
     if not selectedRoster then return -1 end
 
-    return UTILS.CalculateItemCost(selectedRoster, CONSTANTS.AUCTION_COMM.BID_BONUS,
+    return UTILS.CalculateItemCost(selectedRoster, CONSTANTS.REPORTTHIS.BID_TYPE.BONUS,
         UTILS.GetCurrentPoints(selectedRoster, player))
 end
 
@@ -287,4 +295,298 @@ function UTILS.GetAuthorizedGuildMembers(playerSituation)
     end
     IdentifyRaidMembers(senders)
     return senders
+end
+
+--[[ Data ]] --
+
+do
+
+    local data = {}
+
+    local function merge(t1, ...)
+        local ac = select('#', ...)
+
+        if ac == 0 then
+            return t1
+        end
+        for ax = 1, ac do
+
+            local t2 = select(ax, ...)
+            for _, v in ipairs(t2) do
+                table.insert(t1, v)
+            end
+        end
+        return t1
+    end
+
+    local wandOnly = {
+        Enum.ItemWeaponSubclass.Bows,
+        Enum.ItemWeaponSubclass.Guns,
+        Enum.ItemWeaponSubclass.Thrown,
+        Enum.ItemWeaponSubclass.Crossbow
+    }
+    local noRangedWeapon = merge({ Enum.ItemWeaponSubclass.Wand })
+
+
+    local noIdolSlot = {
+        Enum.ItemArmorSubclass.Libram,
+        Enum.ItemArmorSubclass.Idol,
+        Enum.ItemArmorSubclass.Totem,
+        Enum.ItemArmorSubclass.Sigil,
+    }
+
+    local function excludeOtherRelics(value)
+        local i = {}
+        for _, v in ipairs(noIdolSlot) do
+            if v ~= value then
+                table.insert(i, v)
+            end
+        end
+        return i
+    end
+
+    data['DEATHKNIGHT'] = {
+        [Enum.ItemClass.Weapon] = -- weapon, armor, dual-wield
+        merge({
+            Enum.ItemWeaponSubclass.Bows,
+            Enum.ItemWeaponSubclass.Guns,
+            Enum.ItemWeaponSubclass.Staff,
+            Enum.ItemWeaponSubclass.Warglaive,
+            Enum.ItemWeaponSubclass.Unarmed,
+            Enum.ItemWeaponSubclass.Dagger,
+        },
+            noRangedWeapon,
+            excludeOtherRelics(Enum.ItemArmorSubclass.Sigil)
+        ),
+        [Enum.ItemClass.Armor] = { Enum.ItemArmorSubclass.Shield },
+        idealArmor = Enum.ItemArmorSubclass.Plate,
+        dualWield = false
+    }
+    data['DEMONHUNTER'] = {
+        [Enum.ItemClass.Weapon] = merge({
+            Enum.ItemWeaponSubclass.Axe2H,
+            Enum.ItemWeaponSubclass.Mace1H,
+            Enum.ItemWeaponSubclass.Mace2H,
+            Enum.ItemWeaponSubclass.Polearm,
+            Enum.ItemWeaponSubclass.Sword2H,
+            Enum.ItemWeaponSubclass.Staff,
+        },
+            noRangedWeapon
+        ),
+        [Enum.ItemClass.Armor] = { Enum.ItemArmorSubclass.Mail, Enum.ItemArmorSubclass.Plate,
+            Enum.ItemArmorSubclass.Shield },
+        idealArmor = Enum.ItemArmorSubclass.Leather,
+        dualWield = true
+    }
+    data['DRUID'] = {
+        [Enum.ItemClass.Weapon] = merge({
+            Enum.ItemWeaponSubclass.Axe1H,
+            Enum.ItemWeaponSubclass.Axe2H,
+            Enum.ItemWeaponSubclass.Sword1H,
+            Enum.ItemWeaponSubclass.Sword2H,
+        },
+            noRangedWeapon,
+            excludeOtherRelics(Enum.ItemArmorSubclass.Sigil)
+        ),
+        [Enum.ItemClass.Armor] = { Enum.ItemArmorSubclass.Mail, Enum.ItemArmorSubclass.Plate,
+            Enum.ItemArmorSubclass.Shield },
+        idealArmor = Enum.ItemArmorSubclass.Leather,
+        dualWield = false
+    }
+    data['HUNTER'] = {
+        [Enum.ItemClass.Weapon] = merge({
+            Enum.ItemWeaponSubclass.Mace1H,
+            Enum.ItemWeaponSubclass.Mace2H,
+            Enum.ItemWeaponSubclass.Warglaive,
+            Enum.ItemWeaponSubclass.Thrown,
+            Enum.ItemWeaponSubclass.Wand,
+
+        }, noIdolSlot
+        ),
+        [Enum.ItemClass.Armor] = {
+            Enum.ItemArmorSubclass.Plate,
+            Enum.ItemArmorSubclass.Shield
+        },
+        idealArmor = Enum.ItemArmorSubclass.Mail,
+        dualWield = true
+    }
+    data['MAGE'] = {
+        [Enum.ItemClass.Weapon] = merge({
+            Enum.ItemWeaponSubclass.Axe1H,
+            Enum.ItemWeaponSubclass.Axe2H,
+            Enum.ItemWeaponSubclass.Mace1H,
+            Enum.ItemWeaponSubclass.Mace2H,
+            Enum.ItemWeaponSubclass.Polearm,
+            Enum.ItemWeaponSubclass.Sword2H,
+            Enum.ItemWeaponSubclass.Warglaive,
+            Enum.ItemWeaponSubclass.Unarmed
+        },
+            wandOnly,
+            noIdolSlot
+        ),
+        [Enum.ItemClass.Armor] = {
+            Enum.ItemArmorSubclass.Leather,
+            Enum.ItemArmorSubclass.Mail,
+            Enum.ItemArmorSubclass.Plate,
+            Enum.ItemArmorSubclass.Shield
+        },
+        idealArmor = Enum.ItemArmorSubclass.Cloth,
+        dualWield = false
+    }
+    data['MONK'] = {
+        [Enum.ItemClass.Weapon] = merge({
+            Enum.ItemWeaponSubclass.Axe2H,
+            Enum.ItemWeaponSubclass.Mace2H,
+            Enum.ItemWeaponSubclass.Sword2H,
+            Enum.ItemWeaponSubclass.Warglaive,
+            Enum.ItemWeaponSubclass.Dagger,
+        },
+            noRangedWeapon,
+            noIdolSlot
+        ),
+        [Enum.ItemClass.Armor] = {
+            Enum.ItemArmorSubclass.Mail,
+            Enum.ItemArmorSubclass.Plate,
+            Enum.ItemArmorSubclass.Shield
+        },
+        idealArmor = Enum.ItemArmorSubclass.Leather,
+        dualWield = true
+    }
+    data['PALADIN'] = {
+        [Enum.ItemClass.Weapon] = merge({
+            Enum.ItemWeaponSubclass.Warglaive,
+            Enum.ItemWeaponSubclass.Staff,
+            Enum.ItemWeaponSubclass.Unarmed,
+            Enum.ItemWeaponSubclass.Dagger
+        },
+            noRangedWeapon,
+            excludeOtherRelics(Enum.ItemArmorSubclass.Sigil)
+        ),
+        [Enum.ItemClass.Armor] = {},
+        idealArmor = Enum.ItemArmorSubclass.Plate,
+        dualWield = false
+    }
+    data['PRIEST'] = {
+        [Enum.ItemClass.Weapon] = merge({
+            Enum.ItemWeaponSubclass.Axe1H,
+            Enum.ItemWeaponSubclass.Axe2H,
+            Enum.ItemWeaponSubclass.Mace2H,
+            Enum.ItemWeaponSubclass.Polearm,
+            Enum.ItemWeaponSubclass.Sword1H,
+            Enum.ItemWeaponSubclass.Sword2H,
+            Enum.ItemWeaponSubclass.Warglaive,
+            Enum.ItemWeaponSubclass.Unarmed
+        },
+            wandOnly,
+            noIdolSlot
+        ),
+        [Enum.ItemClass.Armor] = {
+            Enum.ItemArmorSubclass.Leather,
+            Enum.ItemArmorSubclass.Mail,
+            Enum.ItemArmorSubclass.Plate,
+            Enum.ItemArmorSubclass.Shield
+        },
+        idealArmor = Enum.ItemArmorSubclass.Cloth,
+        dualWield = false
+    }
+    data['ROGUE'] = {
+        [Enum.ItemClass.Weapon] = {
+            Enum.ItemWeaponSubclass.Axe2H,
+            Enum.ItemWeaponSubclass.Mace2H,
+            Enum.ItemWeaponSubclass.Polearm,
+            Enum.ItemWeaponSubclass.Sword2H,
+            Enum.ItemWeaponSubclass.Warglaive,
+            Enum.ItemWeaponSubclass.Staff,
+            Enum.ItemWeaponSubclass.Wand
+        },
+        [Enum.ItemClass.Armor] = {
+            Enum.ItemArmorSubclass.Mail,
+            Enum.ItemArmorSubclass.Plate,
+            Enum.ItemArmorSubclass.Shield
+        },
+        idealArmor = Enum.ItemArmorSubclass.Leather,
+        dualWield = true
+    }
+    data['SHAMAN'] = {
+        [Enum.ItemClass.Weapon] = merge({
+            Enum.ItemWeaponSubclass.Polearm,
+            Enum.ItemWeaponSubclass.Sword1H,
+            Enum.ItemWeaponSubclass.Sword2H,
+            Enum.ItemWeaponSubclass.Warglaive
+        },
+            noRangedWeapon,
+            noIdolSlot
+        ),
+        [Enum.ItemClass.Armor] = { Enum.ItemArmorSubclass.Plate },
+        idealArmor = Enum.ItemArmorSubclass.Mail,
+        dualWield = true
+    }
+    data['WARLOCK'] = {
+        [Enum.ItemClass.Weapon] = merge({
+            Enum.ItemWeaponSubclass.Axe1H,
+            Enum.ItemWeaponSubclass.Axe2H,
+            Enum.ItemWeaponSubclass.Mace1H,
+            Enum.ItemWeaponSubclass.Mace2H,
+            Enum.ItemWeaponSubclass.Polearm,
+            Enum.ItemWeaponSubclass.Sword2H,
+            Enum.ItemWeaponSubclass.Warglaive,
+            Enum.ItemWeaponSubclass.Unarmed
+        },
+            wandOnly,
+            noIdolSlot
+        ),
+        [Enum.ItemClass.Armor] = {
+            Enum.ItemArmorSubclass.Leather,
+            Enum.ItemArmorSubclass.Mail,
+            Enum.ItemArmorSubclass.Plate,
+            Enum.ItemArmorSubclass.Shield
+        },
+        idealArmor = Enum.ItemArmorSubclass.Cloth,
+        dualWield = false
+    }
+    data['WARRIOR'] = {
+        [Enum.ItemClass.Weapon] = {
+            Enum.ItemWeaponSubclass.Warglaive,
+            Enum.ItemWeaponSubclass.Wand
+        },
+        [Enum.ItemClass.Armor] = {},
+        idealArmor = Enum.ItemArmorSubclass.Plate,
+        dualWield = true
+    }
+
+
+    for _, usable in pairs(data) do
+        do
+            local list = {}
+            for _, subclass in pairs(Enum.ItemArmorSubclass) do
+                list[subclass] = true
+            end
+            for _, subclass in ipairs(usable[Enum.ItemClass.Armor]) do
+                list[subclass] = false
+            end
+            usable[Enum.ItemClass.Armor] = list
+        end
+        do
+            local list = {}
+            for _, subclass in pairs(Enum.ItemWeaponSubclass) do
+                list[subclass] = true
+            end
+            for _, subclass in ipairs(usable[Enum.ItemClass.Weapon]) do
+                list[subclass] = false
+            end
+            usable[Enum.ItemClass.Weapon] = list
+        end
+
+    end
+
+    --[[ API ]] --
+    function UTILS.IsUsableByPlayer(playerClass, itemtype, itemSubtype, slot)
+        if itemtype and itemSubtype and data[string.upper(playerClass)] and data[playerClass][itemtype] then
+            local record = data[playerClass]
+            if slot == 'INVTYPE_WEAPONOFFHAND' and not record.dualWield then return false end
+            return record[itemtype][itemSubtype]
+        end
+        return true
+    end
+
 end

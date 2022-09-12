@@ -1,49 +1,84 @@
-local CLM = LibStub("ClassicLootManager").CLM
-
+local CLM            = LibStub("ClassicLootManager").CLM
+-- ------ CLM common cache ------- --
+local LOG            = CLM.LOG
+local CONSTANTS      = CLM.CONSTANTS
+local UTILS          = CLM.UTILS
+-- ------------------------------- --
 -- Libs
 local ScrollingTable = LibStub("ScrollingTable")
-local AceGUI = LibStub("AceGUI-3.0")
+local AceGUI         = LibStub("AceGUI-3.0")
 
-local LIBS = {
-    registry = LibStub("AceConfigRegistry-3.0"),
-    gui = LibStub("AceConfigDialog-3.0")
-}
-
-local LOG = CLM.LOG
-local UTILS = CLM.UTILS
-local MODULES = CLM.MODULES
-local MODELS = CLM.MODELS
-local CONSTANTS = CLM.CONSTANTS
-local GUI = CLM.GUI
-local ACL = MODULES.ACL
+local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
+local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 
 local mergeDictsInline = UTILS.mergeDictsInline
 local RemoveColorCode = UTILS.RemoveColorCode
 
-local AuctionManager = MODULES.AuctionManager
-local ProfileManager = MODULES.ProfileManager
-local RaidManager = MODULES.RaidManager
-local EventManager = MODULES.EventManager
-local AutoAward = MODULES.AutoAward
+local AuctionManager = CLM.MODULES.AuctionManager
+local ProfileManager = CLM.MODULES.ProfileManager
+local RaidManager = CLM.MODULES.RaidManager
+local EventManager = CLM.MODULES.EventManager
+local AutoAward = CLM.MODULES.AutoAward
 
-local RosterConfiguration = MODELS.RosterConfiguration
+local RosterConfiguration = CLM.MODELS.RosterConfiguration
 
 local REGISTRY = "clm_auction_manager_gui_options"
 
 local EVENT_FILL_AUCTION_WINDOW = "CLM_AUCTION_WINDOW_FILL"
 
 local whoami = UTILS.whoami()
+local colorGreen = { r = 0.2, g = 0.93, b = 0.2, a = 1.0 }
+local colorYellow = { r = 0.93, g = 0.93, b = 0.2, a = 1.0 }
+local colorRedTransparent = { r = 0.93, g = 0.2, b = 0.2, a = 0.3 }
+local colorGreenTransparent = { r = 0.2, g = 0.93, b = 0.2, a = 0.3 }
+local colorBlueTransparent = { r = 0.2, g = 0.2, b = 0.93, a = 0.3 }
+
+local colorRedTransparentHex = "ED3333"
+local colorGreenTransparentHex = "33ED33"
+local colorBlueTransparentHex = "3333ED"
 
 local guiOptions = {
     type = "group",
     args = {}
 }
 
+local function ST_GetHighlightFunction(row)
+    return row.cols[5].value
+end
+
+local highlightRole = {
+    ["DAMAGER"] = UTILS.getHighlightMethod(colorRedTransparent),
+    ["TANK"] = UTILS.getHighlightMethod(colorBlueTransparent),
+    ["HEALER"] = UTILS.getHighlightMethod(colorGreenTransparent),
+}
+
+local function GetModifierCombination()
+    local combination = ""
+
+    if IsAltKeyDown() then
+        combination = combination .. "a"
+    end
+
+    if IsShiftKeyDown() then
+        combination = combination .. "s"
+    end
+
+    if IsControlKeyDown() then
+        combination = combination .. "c"
+    end
+
+    return combination
+end
+
+local function CheckModifierCombination()
+    return (CLM.GlobalConfigs:GetModifierCombination() == GetModifierCombination())
+end
+
 local function FillAuctionWindowFromTooltip(frame, button)
-    if GameTooltip and (IsAltKeyDown() and IsShiftKeyDown()) then
+    if GameTooltip and CheckModifierCombination() then
         local _, itemLink = GameTooltip:GetItem()
         if itemLink then
-            EventManager:DispatchEvent(EVENT_FILL_AUCTION_WINDOW, {
+            CLM.MODULES.EventManager:DispatchEvent(EVENT_FILL_AUCTION_WINDOW, {
                 link = itemLink,
                 start = (button == "RightButton")
             })
@@ -79,7 +114,7 @@ end
 local alreadyPostedLoot = {}
 local function PostLootToRaidChat()
     if not IsInRaid() then return end
-    if not ACL:IsTrusted() then return end
+    if not CLM.MODULES.ACL:IsTrusted() then return end
     if not CLM.GlobalConfigs:GetAnnounceLootToRaid() then return end
     if CLM.GlobalConfigs:GetAnnounceLootToRaidOwnerOnly() then
         if not RaidManager:IsRaidOwner(whoami) then return end
@@ -105,7 +140,7 @@ local function PostLootToRaidChat()
 end
 
 local function InitializeDB(self)
-    self.db = MODULES.Database:GUI('auction', {
+    self.db = CLM.MODULES.Database:GUI('auction', {
         location = { nil, nil, "CENTER", 0, 0 },
         notes = {}
     })
@@ -128,7 +163,7 @@ function AuctionManagerGUI:Initialize()
     InitializeDB(self)
     EventManager:RegisterWoWEvent({ "PLAYER_LOGOUT" }, (function(...) StoreLocation(self) end))
     self:Create()
-    if ACL:IsTrusted() then
+    if CLM.MODULES.ACL:IsTrusted() then
         HookBagSlots()
     end
     self.hookedSlots = { wow = {}, elv = {} }
@@ -224,7 +259,15 @@ local function CreateBidWindow(self)
         return selected
     end)
     self.st:RegisterEvents({
-        OnClick = OnClickHandler
+        OnClick = OnClickHandler,
+        -- OnLeave = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
+        --     local status = table.DefaultEvents["OnLeave"](rowFrame, cellFrame, data, cols, row, realrow, column, table,
+        --         ...)
+        --     local rowData = table:GetRow(realrow)
+        --     if not rowData or not rowData.cols then return status end
+        --     ST_GetHighlightFunction(rowData)(rowFrame, cellFrame, data, cols, row, realrow, column, true, table, ...)
+        --     return status
+        -- end),
     })
     --- --- ---
 
@@ -244,8 +287,8 @@ local function CreateOptions(self)
     OptionsGroup:SetWidth(510)
     self.OptionsGroup = OptionsGroup
     UpdateOptions(self)
-    LIBS.registry:RegisterOptionsTable(REGISTRY, guiOptions)
-    LIBS.gui:Open(REGISTRY, OptionsGroup)
+    AceConfigRegistry:RegisterOptionsTable(REGISTRY, guiOptions)
+    AceConfigDialog:Open(REGISTRY, OptionsGroup)
 
     return OptionsGroup
 end
@@ -644,7 +687,7 @@ function AuctionManagerGUI:Refresh()
                 -- rank
                 table.insert(row.cols, { value = data.rank })
                 -- type
-                table.insert(row.cols, { value = string.lower(data.type) })
+                table.insert(row.cols, { value = string.lower(self.roster:GetFieldName(data.type)) })
                 -- points
                 table.insert(row.cols, { value = data.points, color = rowColorValue })
                 -- roll
@@ -658,8 +701,8 @@ function AuctionManagerGUI:Refresh()
     end
 
     UpdateOptions(self)
-    LIBS.gui:Open(REGISTRY, self.OptionsGroup)
-    LIBS.registry:NotifyChange(REGISTRY)
+    AceConfigDialog:Open(REGISTRY, self.OptionsGroup)
+    AceConfigRegistry:NotifyChange(REGISTRY)
     if AuctionManager:IAmTheAuctioneer() then
         self.top:SetHeight(490)
     else
@@ -679,7 +722,7 @@ end
 function AuctionManagerGUI:Toggle()
     LOG:Trace("AuctionManagerGUI:Toggle()")
     if not self._initialized then return end
-    if self.top:IsVisible() or not ACL:IsTrusted() then
+    if self.top:IsVisible() or not CLM.MODULES.ACL:IsTrusted() then
         -- Award reset on closing BidWindow.
         AuctionManagerGUI:ClearSelectedBid()
         self.top:Hide()
@@ -699,7 +742,7 @@ function AuctionManagerGUI:RegisterSlash()
             func = "Toggle",
         }
     }
-    MODULES.ConfigManager:RegisterSlash(options)
+    CLM.MODULES.ConfigManager:RegisterSlash(options)
 end
 
 function AuctionManagerGUI:Reset()
@@ -708,4 +751,4 @@ function AuctionManagerGUI:Reset()
     self.top:SetPoint("CENTER", 0, 0)
 end
 
-GUI.AuctionManager = AuctionManagerGUI
+CLM.GUI.AuctionManager = AuctionManagerGUI

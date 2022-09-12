@@ -291,9 +291,6 @@ CONSTANTS.BIDDING_COMM = {
         NOTIFY_PASS    = 3,
         NOTIFY_HIDE    = 4,
         NOTIFY_CANTUSE = 5,
-        NOTIFY_BONUS   = 16,
-        NOTIFY_UPGRADE = 17,
-        NOTIFY_OFFSPEC = 18
     },
     TYPES = UTILS.Set({
         1, -- SUBMIT BID
@@ -301,9 +298,6 @@ CONSTANTS.BIDDING_COMM = {
         3, -- NOTIFY_PASS
         4, -- NOTIFY_HIDE
         5, -- NOTIFY_CANTUSE
-        16, -- NOTIFY_BONUS
-        17, -- NOTIFY_UPGRADE
-        18, -- NOTIFY_OFFSPEC
     })
 }
 

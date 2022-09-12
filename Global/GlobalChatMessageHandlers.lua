@@ -54,11 +54,11 @@ local function HandleBid(event, playerName, command, secondParam)
     elseif value == CLM.L["pass"] then
         accept, reason = AuctionManager:UpdateBid(playerName, CONSTANTS.AUCTION_COMM.BID_PASS)
     elseif value == CLM.L["bonus"] then
-        accept, reason = AuctionManager:UpdateBid(playerName, CONSTANTS.AUCTION_COMM.BID_BONUS)
+        accept, reason = AuctionManager:UpdateBid(playerName, 0, CONSTANTS.REPORTTHIS.BID_TYPE.BONUS)
     elseif value == CLM.L["upgrade"] then
-        accept, reason = AuctionManager:UpdateBid(playerName, CONSTANTS.AUCTION_COMM.BID_UPGRADE)
+        accept, reason = AuctionManager:UpdateBid(playerName, 0, CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE)
     elseif value == CLM.L["offspec"] then
-        accept, reason = AuctionManager:UpdateBid(playerName, CONSTANTS.AUCTION_COMM.BID_OFFSPEC)
+        accept, reason = AuctionManager:UpdateBid(playerName, 0, CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC)
     else
         local numericValue = tonumber(value)
         if type(numericValue) == "number" then

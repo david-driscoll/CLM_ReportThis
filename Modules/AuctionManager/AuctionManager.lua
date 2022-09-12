@@ -3,30 +3,12 @@ local CLM = LibStub("ClassicLootManager").CLM
 local LOG = CLM.LOG
 
 local UTILS = CLM.UTILS
-local MODULES = CLM.MODULES
-local MODELS = CLM.MODELS
 local GUI = CLM.GUI
 local CONSTANTS = CLM.CONSTANTS
 
-local ProfileManager = MODULES.ProfileManager
-local RosterManager = MODULES.RosterManager
-local LootManager = MODULES.LootManager
-local RaidManager = MODULES.RaidManager
-local EventManager = MODULES.EventManager
-
-local Comms = MODULES.Comms
-
 -- local Roster = MODELS.Roster
-local Raid = MODELS.Raid
-local RosterConfiguration = MODELS.RosterConfiguration
 
 local typeof = UTILS.typeof
-
-local AuctionCommStructure = MODELS.AuctionCommStructure
-local AuctionCommStartAuction = MODELS.AuctionCommStartAuction
-local AuctionCommDenyBid = MODELS.AuctionCommDenyBid
-local AuctionCommDistributeBid = MODELS.AuctionCommDistributeBid
-local AuctionCommResponses = MODELS.AuctionCommResponses
 
 local AUCTION_COMM_PREFIX = "Auction1"
 
@@ -35,10 +17,8 @@ local EVENT_END_AUCTION = "CLM_AUCTION_END"
 
 local AuctionManager = {}
 
-local rollPattern = UTILS.CreatePattern(RANDOM_ROLL_RESULT)
-
 local function InitializeDB(self)
-    self.db = MODULES.Database:Personal('auction', {
+    self.db = CLM.MODULES.Database:Personal('auction', {
         autoAward = true,
         autoTrade = true
     })
@@ -54,13 +34,13 @@ function AuctionManager:Initialize()
     self.auctioneer = nil
     self.rollInProgress = false
 
-    Comms:Register(AUCTION_COMM_PREFIX,
+    CLM.MODULES.Comms:Register(AUCTION_COMM_PREFIX,
         (function(rawMessage, distribution, sender)
-            local message = AuctionCommStructure:New(rawMessage)
+            local message = CLM.MODELS.AuctionCommStructure:New(rawMessage)
             if CONSTANTS.AUCTION_COMM.TYPES[message:Type()] == nil then return end
             -- Auction Manager is owner of the channel
             -- pass handling to BidManager
-            MODULES.BiddingManager:HandleIncomingMessage(message, distribution, sender)
+            CLM.MODULES.BiddingManager:HandleIncomingMessage(message, distribution, sender)
             AuctionManager:HandleIncomingSyncMessage(message, distribution, sender)
         end),
         (function(name)
@@ -68,7 +48,7 @@ function AuctionManager:Initialize()
         end),
         true)
 
-    EventManager:RegisterWoWEvent({ "CHAT_MSG_SYSTEM" }, (function(addon, _, text, ...)
+    CLM.MODULES.EventManager:RegisterWoWEvent({ "CHAT_MSG_SYSTEM" }, (function(addon, _, text, ...)
         if not self.rollInProgress then return end
         local pattern = string.gsub(RANDOM_ROLL_RESULT, "[%(%)%-]", "%%%1")
         pattern = string.gsub(pattern, "%%s", "(.+)")
@@ -100,9 +80,6 @@ function AuctionManager:Initialize()
         [CONSTANTS.BIDDING_COMM.TYPE.SUBMIT_BID]     = "HandleSubmitBid",
         [CONSTANTS.BIDDING_COMM.TYPE.CANCEL_BID]     = "HandleCancelBid",
         [CONSTANTS.BIDDING_COMM.TYPE.NOTIFY_PASS]    = "HandleNotifyPass",
-        [CONSTANTS.BIDDING_COMM.TYPE.NOTIFY_BONUS]   = "HandleNotifyBonus",
-        [CONSTANTS.BIDDING_COMM.TYPE.NOTIFY_UPGRADE] = "HandleNotifyUpgrade",
-        [CONSTANTS.BIDDING_COMM.TYPE.NOTIFY_OFFSPEC] = "HandleNotifyOffspec",
         [CONSTANTS.BIDDING_COMM.TYPE.NOTIFY_HIDE]    = "HandleNotifyHide",
         [CONSTANTS.BIDDING_COMM.TYPE.NOTIFY_CANTUSE] = "HandleNotifyCantUse",
     }
@@ -149,6 +126,16 @@ function AuctionManager:Initialize()
             -- width = "double",
             order = 33
         },
+        global_auction_combination = {
+            name = CLM.L["Modifier combination"],
+            desc = CLM.L["Select modifier combination for auctioning from bags and corpse."],
+            type = "select",
+            values = CONSTANTS.MODIFIER_COMBINATIONS_GUI,
+            sorting = CONSTANTS.MODIFIER_COMBINATIONS_SORTED,
+            set = function(i, v) CLM.GlobalConfigs:SetModifierCombination(v) end,
+            get = function(i) return CLM.GlobalConfigs:GetModifierCombination() end,
+            order = 31.5
+        },
         auctioning_chat_commands_header = {
             type = "header",
             name = CLM.L["Auctioning - Chat Commands"],
@@ -182,9 +169,7 @@ function AuctionManager:Initialize()
             order = 37
         }
     }
-    MODULES.ConfigManager:Register(CLM.CONSTANTS.CONFIGS.GROUP.GLOBAL, options)
-
-    MODULES.ConfigManager:RegisterUniversalExecutor("aum", "AuctionManager", self)
+    CLM.MODULES.ConfigManager:Register(CLM.CONSTANTS.CONFIGS.GROUP.GLOBAL, options)
 
     self._initialized = true
 end
@@ -218,7 +203,7 @@ function AuctionManager:StartAuction(itemId, itemLink, itemSlot, values, note, r
     end
     -- Auction parameters sanity checks
     note = note or ""
-    if not typeof(raid, Raid) then
+    if not typeof(raid, CLM.MODELS.Raid) then
         LOG:Warning("AuctionManager:StartAuction(): Invalid raid object")
         return false
     end
@@ -241,7 +226,7 @@ function AuctionManager:StartAuction(itemId, itemLink, itemSlot, values, note, r
             return false
         end
     end
-    if not typeof(configuration, RosterConfiguration) then
+    if not typeof(configuration, CLM.MODELS.RosterConfiguration) then
         LOG:Warning("AuctionManager:StartAuction(): Invalid roster configuration object")
         return false
     end
@@ -326,7 +311,7 @@ function AuctionManager:StartAuction(itemId, itemLink, itemSlot, values, note, r
     self.antiSnipeLimit = (self.antiSnipe > 0) and (CONSTANTS.AUCTION_TYPES_OPEN[self.auctionType] and 100 or 3) or 0
 
     -- if values are different than current (or default if no override) item value we will need to update the config
-    RosterManager:SetRosterItemValues(self.raid:Roster(), itemId, values)
+    CLM.MODULES.RosterManager:SetRosterItemValues(self.raid:Roster(), itemId, values)
 
     -- calculate server end time
     self.auctionEndTime = GetServerTime() + self.auctionTime
@@ -353,13 +338,13 @@ function AuctionManager:StartAuction(itemId, itemLink, itemSlot, values, note, r
     -- UI
     self:UpdateBidList()
     -- Event
-    EventManager:DispatchEvent(EVENT_START_AUCTION, { itemId = self.itemId })
+    CLM.MODULES.EventManager:DispatchEvent(EVENT_START_AUCTION, { itemId = self.itemId })
     return true
 end
 
 local function AuctionEnd(self, postToChat)
     self.lastAuctionEndTime = GetServerTime()
-    EventManager:DispatchEvent(EVENT_END_AUCTION, {
+    CLM.MODULES.EventManager:DispatchEvent(EVENT_END_AUCTION, {
         link = self.itemLink,
         id = self.itemId,
         bids = self.userResponses.bids,
@@ -454,9 +439,9 @@ function AuctionManager:SendAuctionStart(rosterUid)
     for _, value in pairs(self.userResponses.bidData) do
         value.roll = nil
     end
-    local message = AuctionCommStructure:New(
+    local message = CLM.MODELS.AuctionCommStructure:New(
         CONSTANTS.AUCTION_COMM.TYPE.START_AUCTION,
-        AuctionCommStartAuction:New(
+        CLM.MODELS.AuctionCommStartAuction:New(
             self.auctionType,
             self.itemValueMode,
             self.values,
@@ -469,23 +454,23 @@ function AuctionManager:SendAuctionStart(rosterUid)
             rosterUid
         )
     )
-    Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
 end
 
 function AuctionManager:SendAuctionEnd()
     if not self.auctionInProgress then return end
     self.auctionInProgress = false
     if not self:IAmTheAuctioneer() then return end
-    local message = AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.STOP_AUCTION, {})
-    Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    local message = CLM.MODELS.AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.STOP_AUCTION, {})
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
 end
 
 local function SendBidList()
     LOG:Debug("SendBidList()")
     if not AuctionManager:IAmTheAuctioneer() then return end
-    local message = AuctionCommStructure:New(
+    local message = CLM.MODELS.AuctionCommStructure:New(
         CONSTANTS.AUCTION_COMM.TYPE.BID_LIST,
-        AuctionCommResponses:New(
+        CLM.MODELS.AuctionCommResponses:New(
             nil,
             AuctionManager.userResponses.bidData,
             AuctionManager.userResponses.bids,
@@ -494,53 +479,55 @@ local function SendBidList()
             AuctionManager.userResponses.cantUse
         )
     )
-    Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
 end
 
 function AuctionManager:SendRollStart()
     if self.rollInProgress then return end
     self.rollInProgress = true
     if not self:IAmTheAuctioneer() then return end
-    local message = AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.START_ROLL, {})
-    Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    local message = CLM.MODELS.AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.START_ROLL, {})
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
 end
 
 function AuctionManager:SendRollEnd()
     if not self.rollInProgress then return end
     self.rollInProgress = false
     if not self:IAmTheAuctioneer() then return end
-    local message = AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.STOP_ROLL, {})
-    Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    local message = CLM.MODELS.AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.STOP_ROLL, {})
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
 end
 
 function AuctionManager:SendAntiSnipe()
     if not self.auctionInProgress or not self:IAmTheAuctioneer() then return end
-    local message = AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.ANTISNIPE, {})
-    Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    local message = CLM.MODELS.AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.ANTISNIPE, {})
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
 end
 
 function AuctionManager:SendBidAccepted(name)
     if not self.auctionInProgress or not self:IAmTheAuctioneer() then return end
-    local message = AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.ACCEPT_BID, {})
-    Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.WHISPER, name, CONSTANTS.COMMS.PRIORITY.ALERT)
+    local message = CLM.MODELS.AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.ACCEPT_BID, {})
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.WHISPER, name,
+        CONSTANTS.COMMS.PRIORITY.ALERT)
 end
 
 function AuctionManager:SendBidDenied(name, reason)
     if not self.auctionInProgress or not self:IAmTheAuctioneer() then return end
-    local message = AuctionCommStructure:New(
+    local message = CLM.MODELS.AuctionCommStructure:New(
         CONSTANTS.AUCTION_COMM.TYPE.DENY_BID,
-        AuctionCommDenyBid:New(reason)
+        CLM.MODELS.AuctionCommDenyBid:New(reason)
     )
-    Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.WHISPER, name, CONSTANTS.COMMS.PRIORITY.ALERT)
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.WHISPER, name,
+        CONSTANTS.COMMS.PRIORITY.ALERT)
 end
 
 function AuctionManager:SendBidInfo(name, bid)
     if not self.auctionInProgress or not self:IAmTheAuctioneer() then return end
-    local message = AuctionCommStructure:New(
+    local message = CLM.MODELS.AuctionCommStructure:New(
         CONSTANTS.AUCTION_COMM.TYPE.DISTRIBUTE_BID,
-        AuctionCommDistributeBid:New(name, bid)
+        CLM.MODELS.AuctionCommDistributeBid:New(name, bid)
     )
-    Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
 end
 
 function AuctionManager:HandleIncomingMessage(message, distribution, sender)
@@ -567,7 +554,7 @@ function AuctionManager:HandleSubmitBid(data, sender)
         LOG:Debug("Received submit bid from %s while no auctions are in progress", sender)
         return
     end
-    self:UpdateBid(sender, data:Bid())
+    self:UpdateBid(sender, data:Bid(), data:Type())
 end
 
 function AuctionManager:HandleCancelBid(data, sender)
@@ -587,36 +574,6 @@ function AuctionManager:HandleNotifyPass(data, sender)
     end
     -- Pass (unlike other notifciations) needs to go through update bid since it overwrites bid value
     self:UpdateBid(sender, CONSTANTS.AUCTION_COMM.BID_PASS)
-end
-
-function AuctionManager:HandleNotifyBonus(data, sender)
-    LOG:Trace("AuctionManager:HandleNotifyBonus()")
-    if not self.auctionInProgress then
-        LOG:Debug("Received bonus from %s while no auctions are in progress", sender)
-        return
-    end
-    -- Pass (unlike other notifciations) needs to go through update bid since it overwrites bid value
-    self:UpdateBid(sender, CONSTANTS.AUCTION_COMM.BID_BONUS)
-end
-
-function AuctionManager:HandleNotifyUpgrade(data, sender)
-    LOG:Trace("AuctionManager:HandleNotifyUpgrade()")
-    if not self.auctionInProgress then
-        LOG:Debug("Received upgrade from %s while no auctions are in progress", sender)
-        return
-    end
-    -- Pass (unlike other notifciations) needs to go through update bid since it overwrites bid value
-    self:UpdateBid(sender, CONSTANTS.AUCTION_COMM.BID_UPGRADE)
-end
-
-function AuctionManager:HandleNotifyOffspec(data, sender)
-    LOG:Trace("AuctionManager:HandleNotifyOffspec()")
-    if not self.auctionInProgress then
-        LOG:Debug("Received offspec from %s while no auctions are in progress", sender)
-        return
-    end
-    -- Pass (unlike other notifciations) needs to go through update bid since it overwrites bid value
-    self:UpdateBid(sender, CONSTANTS.AUCTION_COMM.BID_OFFSPEC)
 end
 
 function AuctionManager:HandleNotifyHide(data, sender)
@@ -719,7 +676,7 @@ function AuctionManager:HandleBidList(data, sender)
     GUI.AuctionManager:Refresh()
 end
 
-function AuctionManager:ValidateBid(name, bid)
+function AuctionManager:ValidateBid(name, bid, type)
     -- bid cancelling
     if bid == nil then
         return true
@@ -727,7 +684,7 @@ function AuctionManager:ValidateBid(name, bid)
     -- bid passing
     if bid == CONSTANTS.AUCTION_COMM.BID_PASS then return true end
     -- sanity check
-    local profile = ProfileManager:GetProfileByName(name)
+    local profile = CLM.MODULES.ProfileManager:GetProfileByName(name)
     if not profile then return false, CONSTANTS.AUCTION_COMM.DENY_BID_REASON.NOT_IN_ROSTER end
     local GUID = profile:GUID()
     if not self.raid:Roster():IsProfileInRoster(GUID) then return false,
@@ -739,14 +696,15 @@ function AuctionManager:ValidateBid(name, bid)
             CONSTANTS.AUCTION_COMM.DENY_BID_REASON.NEGATIVE_BIDDER
     end
 
-    if bid == CONSTANTS.AUCTION_COMM.BID_BONUS then return true end
-    if bid == CONSTANTS.AUCTION_COMM.BID_UPGRADE then return true end
-    if bid == CONSTANTS.AUCTION_COMM.BID_OFFSPEC then return true end
+    if type == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS then return true end
+    if type == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE then return true end
+    if type == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC then return true end
+    if type == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC then return true end
 
     local currentPoints = UTILS.GetCurrentPoints(self.raid, name)
     local bidType = AuctionManager:InferBidType(bid)
     if not bidType then return false end
-    if bidType == CONSTANTS.AUCTION_COMM.BID_UPGRADE then currentPoints = self:GetUpgradeCost() end
+    if bidType == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE then currentPoints = self:GetUpgradeCost() end
 
     -- allow negative standings after bid
     local new = currentPoints - UTILS.CalculateItemCost(self.raid, bidType, currentPoints, self.itemId)
@@ -765,13 +723,13 @@ function AuctionManager:UpdateBidList()
     GUI.AuctionManager:UpdateBids()
 end
 
-function AuctionManager:UpdateBid(name, bid)
+function AuctionManager:UpdateBid(name, bid, type)
     LOG:Trace("AuctionManager:UpdateBid()")
     LOG:Debug("Bid from %s: %s", name, bid)
     if not self:IsAuctionInProgress() then return false, CONSTANTS.AUCTION_COMM.DENY_BID_REASON.NO_AUCTION_IN_PROGRESS end
-    local accept, reason = self:ValidateBid(name, bid)
+    local accept, reason = self:ValidateBid(name, bid, type)
     if accept then
-        self:UpdateBidsInternal(name, bid)
+        self:UpdateBidsInternal(name, bid, type)
         self:SendBidAccepted(name)
     else
         LOG:Debug("Bid denied %s", reason)
@@ -795,7 +753,7 @@ function AuctionManager:GetMaxCost(raidOrRoster, itemId)
     return UTILS.GetMaxCost(raidOrRoster or self.raid, itemId)
 end
 
-function AuctionManager:UpdateBidsInternal(name, bid)
+function AuctionManager:UpdateBidsInternal(name, bid, type)
 
     local function setBidData(userResponses, name, points, b, pass)
         userResponses.bids[name] = points
@@ -820,34 +778,34 @@ function AuctionManager:UpdateBidsInternal(name, bid)
 
     local points = UTILS.GetCurrentPoints(self.raid, name)
 
-    if bid == CONSTANTS.AUCTION_COMM.BID_BONUS then
+    if type == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS then
         if points <= upgradeCost then
-            bid = CONSTANTS.AUCTION_COMM.BID_UPGRADE
+            type = CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE
         end
-        setBidData(self.userResponses, name, points, bid)
+        setBidData(self.userResponses, name, points, type)
         return false
     end
 
-    if bid == CONSTANTS.AUCTION_COMM.BID_UPGRADE then
+    if type == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE then
         if points > upgradeCost then points = upgradeCost end
-        setBidData(self.userResponses, name, points, bid)
+        setBidData(self.userResponses, name, points, type)
         return false
     end
 
-    if bid == CONSTANTS.AUCTION_COMM.BID_OFFSPEC then
-        setBidData(self.userResponses, name, offspecCost, bid)
+    if type == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or type == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC then
+        setBidData(self.userResponses, name, offspecCost, type)
         return false
     end
 
     local bidType = AuctionManager:InferBidType(bid)
     if bidType then
-        if bidType == CONSTANTS.AUCTION_COMM.BID_BONUS then
-            if points <= upgradeCost then bidType = CONSTANTS.AUCTION_COMM.BID_UPGRADE end
+        if bidType == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS then
+            if points <= upgradeCost then bidType = CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE end
         end
-        if bidType == CONSTANTS.AUCTION_COMM.BID_UPGRADE then
+        if bidType == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE then
             if points > upgradeCost then points = upgradeCost end
         end
-        if bidType == CONSTANTS.AUCTION_COMM.BID_OFFSPEC then points = offspecCost end
+        if bidType == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC then points = offspecCost end
         setBidData(self.userResponses, name, points, bidType)
         return false
     end
@@ -865,16 +823,16 @@ function AuctionManager:InferBidType(bid)
 
     -- <= 0
     if bid <= self.values[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.OFFSPEC] then
-        return CONSTANTS.AUCTION_COMM.BID_OFFSPEC
+        return CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC
     end
 
     -- 1 <-> 25
     if bid <= self.values[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.UPGRADE] then
-        return CONSTANTS.AUCTION_COMM.BID_UPGRADE
+        return CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE
     end
 
     -- > 26
-    return CONSTANTS.AUCTION_COMM.BID_BONUS
+    return CONSTANTS.REPORTTHIS.BID_TYPE.BONUS
 end
 
 function AuctionManager:Bids()
@@ -921,8 +879,8 @@ function AuctionManager:GetEligibleBids()
     local rollDifference = self:GetRollDifference()
     for _, data in pairs(AuctionManager:BidData()) do
         hasUpgradeOrBonus = hasUpgradeOrBonus
-            or data.type == CONSTANTS.AUCTION_COMM.BID_UPGRADE
-            or data.type == CONSTANTS.AUCTION_COMM.BID_BONUS
+            or data.type == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS
+            or data.type == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE
 
         if (data.type ~= CONSTANTS.AUCTION_COMM.BID_PASS)
             and (tonumber(topBid.points) - tonumber(data.points)) <= rollDifference
@@ -939,7 +897,8 @@ function AuctionManager:GetEligibleBids()
     end
     if hasUpgradeOrBonus then
         for index, value in ipairs(bids) do
-            if value.type == CONSTANTS.AUCTION_COMM.BID_OFFSPEC then
+            if value.type == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or
+                value.type == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC then
                 table.remove(bids, index)
             end
         end
@@ -979,9 +938,9 @@ end
 function AuctionManager:Award(itemLink, itemId, price, name)
     LOG:Trace("AuctionManager:Award()")
     self:SendRollEnd()
-    local success, uuid = LootManager:AwardItem(self.raid, name, itemLink, itemId, price)
+    local success, uuid = CLM.MODULES.LootManager:AwardItem(self.raid, name, itemLink, itemId, price)
     if success then
-        MODULES.AuctionHistoryManager:CorrelateWithLoot(self.lastAuctionEndTime, uuid)
+        CLM.MODULES.AuctionHistoryManager:CorrelateWithLoot(self.lastAuctionEndTime, uuid)
     end
     -- clear bids
     self:ClearBids()
@@ -992,7 +951,7 @@ end
 function AuctionManager:IsAuctioneer(name, relaxed)
     LOG:Trace("AuctionManager:IsAuctioneer()")
     name = name or UTILS.whoami()
-    return RaidManager:IsAllowedToAuction(name, relaxed)
+    return CLM.MODULES.RaidManager:IsAllowedToAuction(name, relaxed)
 end
 
 function AuctionManager:IsAuctionInProgress()
@@ -1025,9 +984,6 @@ end
 
 CONSTANTS.AUCTION_COMM = {
     BID_PASS                = CLM.L["PASS"],
-    BID_BONUS               = CLM.L["BONUS"],
-    BID_UPGRADE             = CLM.L["UPGRADE"],
-    BID_OFFSPEC             = CLM.L["OFFSPEC"],
     TYPE                    = {
         START_AUCTION = 1,
         STOP_AUCTION = 2,
@@ -1088,4 +1044,4 @@ CONSTANTS.AUCTION_COMM = {
     }
 }
 
-MODULES.AuctionManager = AuctionManager
+CLM.MODULES.AuctionManager = AuctionManager
