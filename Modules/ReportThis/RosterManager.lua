@@ -85,7 +85,7 @@ function RosterManagerOptions:Initialize()
             SetRosterOption(name, "rollDifference", value)
         end),
         auction_auto_decay_get = (function(name)
-            return GetRosterOption(name, "autoDecay")
+            return tostring(GetRosterOption(name, "autoDecay"))
         end),
         auction_auto_decay_set = (function(name, value)
             SetRosterOption(name, "autoDecay", value)
