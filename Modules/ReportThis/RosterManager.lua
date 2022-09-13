@@ -8,6 +8,7 @@ local UTILS = CLM.UTILS
 local LOG = CLM.LOG
 local RosterManager = CLM.MODULES.RosterManager
 local LedgerManager = CLM.MODULES.LedgerManager
+local ConfigLedgerManager = CLM.OPTIONS.ReportThisConfigLedgerManager
 local LEDGER_REPORTTHIS_ROSTER = CLM.MODELS.LEDGER.REPORTTHIS.ROSTER
 local LEDGER_ROSTER = CLM.MODELS.LEDGER.ROSTER
 local ReportThisRosterConfiguration = CLM.MODELS.ReportThisRosterConfiguration
@@ -50,7 +51,7 @@ local function SetRosterOption(name, option, value)
         return
     end
 
-    LedgerManager:Submit(LEDGER_REPORTTHIS_ROSTER.UpdateConfigSingle:new(roster:UID(), option, value), true)
+    ConfigLedgerManager:Submit(LEDGER_REPORTTHIS_ROSTER.UpdateConfigSingle:new(roster:UID(), option, value), true)
 end
 
 local oldRosterManagerOptionsInitialize = RosterManagerOptions.Initialize
@@ -103,10 +104,11 @@ function ReportThisRosterManager:Initialize()
     LOG:Info("ReportThisRosterManager:Initialize()")
     self.rostersCache = {}
 
-
     LedgerManager:ObserveEntryType(LEDGER_ROSTER.Create, function(entry)
         LOG:Debug("observe(LEDGER_ROSTER.Create)")
-        self.rostersCache[entry:rosterUid()] = ReportThisRosterConfiguration:New()
+        if not self.rostersCache[entry:rosterUid()] then
+            self.rostersCache[entry:rosterUid()] = ReportThisRosterConfiguration:New()
+        end
     end)
 
     LedgerManager:ObserveEntryType(LEDGER_ROSTER.Delete, function(entry)
@@ -114,7 +116,7 @@ function ReportThisRosterManager:Initialize()
         self.rostersCache[entry:rosterUid()] = nil
     end)
 
-    LedgerManager:RegisterEntryType(
+    ConfigLedgerManager:RegisterEntryType(
         LEDGER_REPORTTHIS_ROSTER.UpdateConfigSingle,
         (function(entry)
             LOG:TraceAndCount("mutator(ReportThis.RosterUpdateConfigSingle)")
@@ -122,11 +124,11 @@ function ReportThisRosterManager:Initialize()
 
             local roster = RosterManager:GetRosterByUid(rosterUid)
             if not roster or not self.rostersCache[entry:rosterUid()] then
-                LOG:Debug("Updating non-existent roster [%s]", rosterUid)
-                return
+                self.rostersCache[entry:rosterUid()] = ReportThisRosterConfiguration:New()
             end
 
             self.rostersCache[entry:rosterUid()]:Set(entry:config(), entry:value())
+            RosterManagerOptions:UpdateOptions()
         end))
 end
 
@@ -134,7 +136,10 @@ function ReportThisRosterManager:GetConfiguration(roster, option)
     LOG:Debug("ReportThisRosterManager:GetConfiguration(%s, %s)", tostring(roster), option)
     if UTILS.typeof(roster, CLM.MODELS.Roster) then roster = roster:UID() end
     LOG:Debug("self.rostersCache[roster] %s", tostring(self.rostersCache[roster] and true or false))
-    return self.rostersCache[roster] and self.rostersCache[roster]:Get(option)
+    if not self.rostersCache[roster] then
+        self.rostersCache[roster] = ReportThisRosterConfiguration:New()
+    end
+    return self.rostersCache[roster]:Get(option)
 end
 
 local oldRosterManagerOptionsGenerateRosterOptions = RosterManagerOptions.GenerateRosterOptions

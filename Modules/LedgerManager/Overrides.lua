@@ -2,7 +2,7 @@ local CLM = LibStub("ClassicLootManager").CLM
 
 local LOG = CLM.LOG
 local MODULES = CLM.MODULES
-local LedgerManager = MODULES.LedgerManager
+local LedgerManager = CLM.MODULES.LedgerManager
 
 local observeEvents = {}
 

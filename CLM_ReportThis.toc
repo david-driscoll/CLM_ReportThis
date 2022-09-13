@@ -7,9 +7,11 @@
 # OptionalDependencies: LibStub, CallbackHandler-1.0, LibDeflate, LibSerialize, LibLogger, AceAddon-3.0
 ## LoadOnDemand: 0
 ## Dependencies: ClassicLootManager
+## SavedVariables: CLM_ReportThis
 
 # Addon Core
 CLM_ReportThis.lua
+Modules\LedgerManager\ConfigLedgerManager.lua
 Modules\LedgerManager\Overrides.lua
 
 # Addon models
