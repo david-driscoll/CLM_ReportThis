@@ -480,27 +480,18 @@ function AuctionManagerGUI:GenerateAuctionOptions()
             name = "Info",
             desc = (function()
                 if not RaidManager:IsInActiveRaid() or self.raid == nil then return "Not in raid" end
-                -- Unique did any action dict
-                local didAnyAction = {}
+
+                local bidInfo = AuctionManager:GetCurrentBidInfo()
+                local passed = bidInfo.passed
+                local cantUse = bidInfo.cantUse
+                local closed = bidInfo.closed
+                local anyAction = bidInfo.anyAction
+                local noAction = bidInfo.noAction
+
                 -- generateInfo closure
-                local _generateInfo = (function(dataDict, ignoreListOfDicts, prefix, skipAction)
-                    local dataList, userCodedString = {}, ""
-                    for p, _ in pairs(dataDict) do
-                        local inIgnoreList = false
-                        for _, d in ipairs(ignoreListOfDicts) do
-                            if d[p] then
-                                inIgnoreList = true
-                                break
-                            end
-                        end
-                        if not inIgnoreList then
-                            table.insert(dataList, p)
-                            if not skipAction then
-                                didAnyAction[p] = true
-                            end
-                        end
-                    end
+                local _generateString = (function(dataList, prefix)
                     local count = #dataList
+                    local userCodedString = ""
                     if count > 0 then
                         userCodedString = "\n\n" .. UTILS.ColorCodeText(prefix .. ": ", "EAB221")
                         for i = 1, count do
@@ -516,44 +507,16 @@ function AuctionManagerGUI:GenerateAuctionOptions()
                             end
                         end
                     end
-                    return count, userCodedString
+                    return userCodedString
                 end)
-                for p, _ in pairs(AuctionManager:Bids()) do
-                    didAnyAction[p] = true
-                end
-                -- passess list
-                local _, passed = _generateInfo(
-                    AuctionManager:Passes(),
-                    { AuctionManager:Bids() },
-                    "Passed")
-                -- cant use actions
-                local _, cantUse = _generateInfo(
-                    AuctionManager:CantUse(),
-                    { AuctionManager:Bids(), AuctionManager:Passes() },
-                    "Can't use")
-                -- closed actions
-                local _, closed = _generateInfo(AuctionManager:Hidden(),
-                    { AuctionManager:Bids(), AuctionManager:Passes(), AuctionManager:CantUse() },
-                    "Closed")
-                -- no action
-                local raidersDict = {}
-                for _, GUID in ipairs(self.raid:Players()) do
-                    local profile = ProfileManager:GetProfileByGUID(GUID)
-                    if profile then
-                        raidersDict[profile:Name()] = true
-                    end
-                end
-                local _, noAction = _generateInfo(raidersDict,
-                    { AuctionManager:Bids(), AuctionManager:Passes(), AuctionManager:CantUse(), AuctionManager:Hidden() }
-                    ,
-                    "No action", true)
-                -- did any actions count
-                local didAnyActionCount = 0
-                for _, _ in pairs(didAnyAction) do didAnyActionCount = didAnyActionCount + 1 end
-                -- Stats
-                local stats = string.format("%d/%d %s", didAnyActionCount, #self.raid:Players(), "total")
+
+                local stats = string.format("%d/%d %s", #anyAction, bidInfo.total, "total")
                 -- Result
-                return stats .. passed .. cantUse .. closed .. noAction
+                return stats
+                    .. _generateString(passed, "Passed")
+                    .. _generateString(cantUse, "Can't Use")
+                    .. _generateString(closed, "Closed")
+                    .. _generateString(noAction, "No Action")
             end),
             type = "execute",
             func = (function() end),

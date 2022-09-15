@@ -136,6 +136,14 @@ function AuctionManager:Initialize()
             get = function(i) return CLM.GlobalConfigs:GetModifierCombination() end,
             order = 31.5
         },
+        global_auction_auto_stop = {
+            name = CLM.L["Auto stop"],
+            desc = CLM.L["Automatically stop auctioning when all players have entered a bid."],
+            type = "toggle",
+            set = function(i, v) self:SetAutoStop(v) end,
+            get = function(i) return self:GetAutoStop() end,
+            order = 33.5
+        },
         auctioning_chat_commands_header = {
             type = "header",
             name = CLM.L["Auctioning - Chat Commands"],
@@ -188,6 +196,14 @@ end
 
 function AuctionManager:GetAutoTrade()
     return self.db.autoTrade
+end
+
+function AuctionManager:SetAutoStop(value)
+    self.db.autoStop = value and true or false
+end
+
+function AuctionManager:GetAutoStop()
+    return self.db.autoStop
 end
 
 -- We pass configuration separately as it can be overriden on per-auction basis
@@ -323,15 +339,26 @@ function AuctionManager:StartAuction(itemId, itemLink, itemSlot, values, note, r
     self:SendAuctionStart(self.raid:Roster():UID())
     -- Start Auction Ticker
     self.lastCountdownValue = 5
+    self.autoStopping = false
     self.ticker = C_Timer.NewTicker(0.1, (function()
         self.auctionTimeLeft = self.auctionEndTime - GetServerTime()
         if CLM.GlobalConfigs:GetCountdownWarning() and self.lastCountdownValue > 0 and
             self.auctionTimeLeft <= self.lastCountdownValue and self.auctionTimeLeft <= 5 then
-            UTILS.SendChatMessage(tostring(math.ceil(self.auctionTimeLeft)), "RAID_WARNING")
+            UTILS.SendChatMessage(tostring(math.ceil(self.auctionTimeLeft)), "RAID")
             self.lastCountdownValue = self.lastCountdownValue - 1
         end
         if self.auctionTimeLeft < 0.1 then
             self:StopAuctionTimed()
+            return
+        end
+
+        if self:GetAutoStop() and not self.autoStopping and self.currentBidInfo.total > 0 and
+            self.currentBidInfo.waitingOn == 0 then
+            UTILS.SendChatMessage(string.format("Received input from %d, closing in %s seconds.",
+                self.currentBidInfo.total, 5), "RAID_WARNING")
+            self.auctionEndTime = GetServerTime() + 5
+            self.auctionTimeLeft = self.auctionEndTime
+            self.autoStopping = true
             return
         end
     end))
@@ -605,8 +632,6 @@ function AuctionManager:HandleStartAuction(data, sender)
     end
     self.auctionType = data:Type()
     self.itemValueMode = data:Mode()
-    self.baseValue = data:Base()
-    self.maxValue = data:Max()
     self.itemLink = data:ItemLink()
     GUI.AuctionManager.itemLink = data:ItemLink()
     self.auctionTime = data:Time()
@@ -674,6 +699,7 @@ function AuctionManager:HandleBidList(data, sender)
     self.userResponses.passes = data:Passes()
     self.userResponses.hidden = data:Hidden()
     self.userResponses.cantUse = data:CantUse()
+    self.currentBidInfo = AuctionManager:ComputeCurrentBidInfo()
     GUI.AuctionManager:Refresh()
 end
 
@@ -721,7 +747,97 @@ function AuctionManager:UpdateBidList()
         UTILS.Debounce("bidlist", 1, function() SendBidList() end)
     end
 
+    self.currentBidInfo = AuctionManager:ComputeCurrentBidInfo()
     GUI.AuctionManager:UpdateBids()
+end
+
+function AuctionManager:GetCurrentBidInfo()
+    return self.currentBidInfo
+end
+
+function AuctionManager:ComputeCurrentBidInfo()
+    if not CLM.MODULES.RaidManager:IsInActiveRaid() or self.raid == nil then return {
+            bidded = {},
+            passed = {},
+            cantUse = {},
+            closed = {},
+            anyAction = {},
+            noAction = {},
+            total = 0,
+            waitingOn = 0,
+        }
+    end
+    -- Unique did any action dict
+    local didAnyAction = {}
+    -- generateInfo closure
+    local _generateInfo = (function(dataDict, ignoreListOfDicts, prefix, skipAction)
+        local dataList, userCodedString = {}, ""
+        for p, _ in pairs(dataDict) do
+            local inIgnoreList = false
+            for _, d in ipairs(ignoreListOfDicts) do
+                if d[p] then
+                    inIgnoreList = true
+                    break
+                end
+            end
+            if not inIgnoreList then
+                table.insert(dataList, p)
+                if not skipAction then
+                    didAnyAction[p] = true
+                end
+            end
+        end
+        return dataList
+    end)
+    for p, _ in pairs(AuctionManager:Bids()) do
+        didAnyAction[p] = true
+    end
+    -- bidded list
+    local bidded = _generateInfo(
+        AuctionManager:Passes(),
+        { AuctionManager:Bids() },
+        "Passed")
+    -- passess list
+    local passed = _generateInfo(
+        AuctionManager:Passes(),
+        { AuctionManager:Bids() },
+        "Passed")
+    -- cant use actions
+    local cantUse = _generateInfo(
+        AuctionManager:CantUse(),
+        { AuctionManager:Bids(), AuctionManager:Passes() },
+        "Can't use")
+    -- closed actions
+    local closed = _generateInfo(AuctionManager:Hidden(),
+        { AuctionManager:Bids(), AuctionManager:Passes(), AuctionManager:CantUse() },
+        "Closed")
+    -- no action
+    local raidersDict = {}
+    for _, GUID in ipairs(self.raid:Players()) do
+        local profile = CLM.MODULES.ProfileManager:GetProfileByGUID(GUID)
+        if profile then
+            raidersDict[profile:Name()] = true
+        end
+    end
+    local noAction = _generateInfo(raidersDict,
+        { AuctionManager:Bids(), AuctionManager:Passes(), AuctionManager:CantUse(), AuctionManager:Hidden() },
+        "No action",
+        true)
+
+    local anyAction = {}
+    -- did any actions count
+    for name, _ in pairs(didAnyAction) do table.insert(anyAction, name) end
+
+    return {
+        bidded = bidded,
+        passed = passed,
+        cantUse = cantUse,
+        closed = closed,
+        anyAction = anyAction,
+        noAction = noAction,
+        total = #self.raid:Players(),
+        waitingOn = #noAction,
+    }
 end
 
 function AuctionManager:UpdateBid(name, bid, type)
@@ -931,6 +1047,16 @@ function AuctionManager:ClearBids()
         passes  = {},
         cantUse = {},
         hidden  = {},
+    }
+    self.currentBidInfo = {
+        bidded = {},
+        passed = {},
+        cantUse = {},
+        closed = {},
+        anyAction = {},
+        noAction = {},
+        total = 0,
+        waitingOn = 0,
     }
     self:SendRollEnd()
     self:UpdateBidList()
