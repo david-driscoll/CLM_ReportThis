@@ -348,6 +348,7 @@ local function AuctionEnd(self, postToChat)
         link = self.itemLink,
         id = self.itemId,
         bids = self.userResponses.bids,
+        bidData = self.userResponses.bidData,
         time = self.lastAuctionEndTime,
         postToChat = postToChat
     })

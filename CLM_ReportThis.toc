@@ -16,6 +16,7 @@ Modules\LedgerManager\Overrides.lua
 
 # Addon models
 Modules\AuctionManager\AuctionCommStructures.lua
+Modules\AuctionManager\LedgerEntries.lua
 # Modules\AuctionManager\AuctionConfiguration.lua
 
 Modules\ReportThis\LedgerEntries.lua
@@ -24,6 +25,7 @@ Modules\ReportThis\RosterManager.lua
 
 # Addon modules (Controllers)
 Modules\AuctionManager\AuctionManager.lua
+Modules\AuctionManager\AuctionHistoryManager.lua
 
 # Addon Options and GUIs (View)
 Modules\AuctionManager\GUI.lua

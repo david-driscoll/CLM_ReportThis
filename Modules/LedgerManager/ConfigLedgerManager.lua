@@ -6,6 +6,7 @@ local CONSTANTS = CLM.CONSTANTS
 local UTILS     = CLM.UTILS
 -- ------------------------------- --
 
+local LedgerManager = CLM.MODULES.LedgerManager
 
 local type, pairs = type, pairs
 
@@ -108,6 +109,7 @@ end
 
 local ConfigLedgerManager = { _initialized = false }
 function ConfigLedgerManager:Initialize()
+    if self._initialized then return end
     DB:Initialize()
     self.activeDatabase = DB:Ledger()
     self.activeLedger = createLedger(self, self.activeDatabase)
@@ -123,26 +125,10 @@ function ConfigLedgerManager:IsInitialized()
 end
 
 function ConfigLedgerManager:Enable()
-    self.activeLedger.getStateManager():setUpdateInterval(50)
-    if CLM.GlobalConfigs:GetDisableSync() then
-        ConfigLedgerManager:Cutoff()
-        LOG:Message("Ledger synchronisation was disabled. Use this at your own risk.")
-    else
-        if CLM.MODULES.ACL:CheckLevel(CONSTANTS.ACL.LEVEL.ASSISTANT) then
-            self.activeLedger.enableSending()
-        end
+    self.activeLedger.getStateManager():setUpdateInterval(120)
+    if CLM.MODULES.ACL:CheckLevel(CONSTANTS.ACL.LEVEL.ASSISTANT) then
+        self.activeLedger.enableSending()
     end
-end
-
--- This is not reversable until reload
-function ConfigLedgerManager:Cutoff()
-    self.activeLedger.disableSending()
-    CLM.MODULES.Comms:Suspend(LEDGER_SYNC_COMM_PREFIX)
-    CLM.MODULES.Comms:Suspend(LEDGER_DATA_COMM_PREFIX)
-end
-
-function ConfigLedgerManager:DisableAdvertising()
-    self.activeLedger.disableSending()
 end
 
 function ConfigLedgerManager:RegisterEntryType(class, mutatorFn)
@@ -263,4 +249,16 @@ end
 
 --@end-do-not-package@
 
-CLM.OPTIONS.ReportThisConfigLedgerManager = ConfigLedgerManager
+CLM.MODULES.ReportThisConfigLedgerManager = ConfigLedgerManager
+
+local oldLedgerManagerInitialize = LedgerManager.Initialize
+function LedgerManager:Initialize(...)
+    ConfigLedgerManager:Initialize()
+    return oldLedgerManagerInitialize(self, ...)
+end
+
+local oldLedgerManagerEnable = LedgerManager.Enable
+function LedgerManager:Enable(...)
+    ConfigLedgerManager:Enable()
+    return oldLedgerManagerEnable(self, ...)
+end
