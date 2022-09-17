@@ -48,6 +48,7 @@ function AuctionHistoryManager:Initialize()
     })
     self.entries = {}
     self.cache = {}
+    self.winners = {}
     CLM.MODULES.EventManager:RegisterEvent(EVENT_END_AUCTION, function(_, data)
         if not self:GetEnabled() then return end
         tinsert(self.entries, 1, {
@@ -72,6 +73,23 @@ function AuctionHistoryManager:Initialize()
         CLM.GUI.AuctionHistory:Refresh(true)
     end)
 
+    local function observeLootAward(entry)
+        self.winners[entry:uuid()] = entry:profile()
+        local result = self.cache[entry:uuid()]
+        if result then
+            local profile = CLM.MODULES.ProfileManager:GetProfileByGUID(UTILS.getGuidFromInteger(entry:profile()))
+
+            result.winner = profile
+            if profile then
+                result.bids[profile.name] = nil
+                result.bids[profile.name .. " (winner)"] = result.bids[profile.name]
+            end
+        end
+    end
+
+    CLM.MODULES.LedgerManager:ObserveEntryType(CLM.MODELS.LEDGER.LOOT.Award, observeLootAward)
+    CLM.MODULES.LedgerManager:ObserveEntryType(CLM.MODELS.LEDGER.LOOT.RaidAward, observeLootAward)
+
     local newEntries = {}
     ConfigLedgerManager:RegisterEntryType(
         AuctionHistoryEntry,
@@ -79,24 +97,50 @@ function AuctionHistoryManager:Initialize()
             LOG:TraceAndCount("mutator(ReportThis.AuctionHistoryEntry)")
 
             local result = {}
-            result.uuid = { [entry:uuid()] = true }
+            result.uuid = entry:uuid()
             result.time = entry:time()
             result.link = entry:link()
             result.id = entry:itemId()
             result.bids = {}
-            result.data = entry:data()
+            result.data = {}
+            result.sortedData = {}
+
+            local winner = self.winners[entry:uuid()]
+            if winner then
+                local profile = CLM.MODULES.ProfileManager:GetProfileByGUID(UTILS.getGuidFromInteger(winner))
+                result.winner = profile
+            end
+
             local rosterId = string.match(entry:uuid(), "%w+%-%w+%-(%w+)")
             local roster = CLM.MODULES.RosterManager:GetRosterByUid(rosterId)
-            for name, value in pairs(entry:data()) do
+            for name, v in pairs(entry:data()) do
+                local value = {
+                    name = name,
+                    points = v.v or 0,
+                    type = v.t or "u",
+                    roll = v.r == '' and 0 or v.r or 0,
+                }
+                result.data[name] = value
+                table.insert(result.sortedData, value)
+
                 local total = CLM.MODULES.AuctionManager:TotalBid(value)
                 local type = roster and roster:GetFieldName(value.type) or getBidTypeName(value.type)
+                local bidName = name
+                if winner and winner.name == bidName then
+                    bidName = bidName .. " (winner)"
+                end
                 if (value.roll) then
-                    result.bids[name] = string.format("%d (roll: %d, points: %d) [%s]", total, value.roll, value.points,
+                    result.bids[bidName] = string.format("%d (roll: %d, points: %d) [%s]", total, value.roll,
+                        value.points,
                         type)
                 else
-                    result.bids[name] = string.format("%d [%s]", total, type)
+                    result.bids[bidName] = string.format("%d [%s]", total, type)
                 end
+
             end
+            table.sort(result.sortedData, function(a, b)
+                return CLM.MODULES.AuctionManager:TotalBid(a) > CLM.MODULES.AuctionManager:TotalBid(b)
+            end)
 
             self.cache[result.uuid] = result
         end))
@@ -119,7 +163,8 @@ function AuctionHistoryManager:Initialize()
                         }
                     end
 
-                    table.insert(newEntries, AuctionHistoryEntry:new(uuid, auction.time, auction.link, auction.id, data))
+                    table.insert(newEntries,
+                        AuctionHistoryEntry:new(uuid, auction.time, auction.link, auction.id, data))
                 end
             end
         end

@@ -117,7 +117,6 @@ function ConfigLedgerManager:Initialize()
     self.onUpdateCallbacks = {}
     self.onRestartCallbacks = {}
     self._initialized = true
-    ConfigLedgerManager:Enable()
 end
 
 function ConfigLedgerManager:IsInitialized()

@@ -25,10 +25,11 @@ Modules\ReportThis\RosterManager.lua
 
 # Addon modules (Controllers)
 Modules\AuctionManager\AuctionManager.lua
-Modules\AuctionManager\AuctionHistoryManager.lua
+Modules\AuctionHistoryManager\AuctionHistoryManager.lua
 
 # Addon Options and GUIs (View)
 Modules\AuctionManager\GUI.lua
+Modules\AuctionHistoryManager\GUI.lua
 
 # Global
 Global\GlobalChatMessageHandlers.lua

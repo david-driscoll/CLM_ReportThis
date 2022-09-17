@@ -22,7 +22,10 @@ function LedgerManager:RegisterEntryType(class, mutatorFn)
     local originalMutatorFn = mutatorFn
     mutatorFn = function(entry)
         for _, observerFn in pairs(observeEvents[class]) do
-            pcall(observerFn, entry)
+            local ran, errorMsg = pcall(observerFn, entry)
+            if not ran then
+                LOG:Warning("Function errored on run " .. tostring(class) .. "\n" .. errorMsg)
+            end
         end
         return originalMutatorFn(entry)
     end
