@@ -22,6 +22,7 @@ function ReportThisRosterConfiguration:New(i)
     o._.rollDifference = 50
     o._.autoDecay = false
     o._.autoDecayPercent = 20
+    o._.allowNegativeUpgrades = false
 
     return o
 end
@@ -37,6 +38,7 @@ function ReportThisRosterConfiguration:fields()
         "rollDifference",
         "autoDecay",
         "autoDecayPercent",
+        "allowNegativeUpgrades"
     }
 end
 
@@ -55,6 +57,7 @@ local TRANSFORMS = {
     rollDifference = transform_number,
     autoDecay = transform_boolean,
     autoDecayPercent = transform_number,
+    allowNegativeUpgrades = transform_boolean,
 }
 
 function ReportThisRosterConfiguration:inflate(data)
@@ -145,6 +148,10 @@ end
 function ReportThisRosterConfiguration._validate_autoDecayPercent(value)
     value = tonumber(value);
     return IsNumeric(value) and IsPositive(value) and value <= 100
+end
+
+function ReportThisRosterConfiguration._validate_allowNegativeUpgrades(value)
+    return IsBoolean(value)
 end
 
 CLM.MODELS.ReportThisRosterConfiguration = ReportThisRosterConfiguration

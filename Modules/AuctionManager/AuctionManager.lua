@@ -977,7 +977,8 @@ function AuctionManager:GetTopBid()
             ) and (self:TotalBid(data) > self:TotalBid(topBid))
         then
             topBid = data
-        elseif (
+        end
+        if (
             topBid.type == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or topBid.type == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC
             )
             and (data.type == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS or data.type == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE)
@@ -1013,7 +1014,7 @@ function AuctionManager:GetEligibleBids()
 
         if (data.type ~= CONSTANTS.AUCTION_COMM.BID_PASS)
             and (tonumber(topBid.points) - tonumber(data.points)) <= rollDifference
-            and (minEligableBid < 0 or data.points > 0)
+            and (self:AllowNegativeUpgrades() or (minEligableBid < 0 or data.points > 0))
         then
             table.insert(bids, data)
             LOG:Debug("minEligableBid (%s) > data.points (%s) = %s", tostring(minEligableBid), tostring(data.points),
@@ -1038,6 +1039,10 @@ end
 
 function AuctionManager:GetRollDifference()
     return CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(self.raid:Roster(), "rollDifference")
+end
+
+function AuctionManager:AllowNegativeUpgrades()
+    return CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(self.raid:Roster(), "allowNegativeUpgrades")
 end
 
 function AuctionManager:Passes()

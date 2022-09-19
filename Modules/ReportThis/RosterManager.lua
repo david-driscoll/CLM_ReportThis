@@ -85,7 +85,7 @@ function RosterManagerOptions:Initialize()
             SetRosterOption(name, "rollDifference", value)
         end),
         auction_auto_decay_get = (function(name)
-            return tostring(GetRosterOption(name, "autoDecay"))
+            return GetRosterOption(name, "autoDecay")
         end),
         auction_auto_decay_set = (function(name, value)
             SetRosterOption(name, "autoDecay", value)
@@ -95,6 +95,12 @@ function RosterManagerOptions:Initialize()
         end),
         auction_auto_decay_percent_set = (function(name, value)
             SetRosterOption(name, "autoDecayPercent", value)
+        end),
+        auction_allow_negative_upgrades_get = (function(name)
+            return GetRosterOption(name, "allowNegativeUpgrades")
+        end),
+        auction_allow_negative_upgrades_set = (function(name, value)
+            SetRosterOption(name, "allowNegativeUpgrades", value)
         end),
     })
 end
@@ -213,6 +219,17 @@ function RosterManagerOptions:GenerateRosterOptions(name)
             disabled = (function() return not ACL:CheckLevel(CONSTANTS.ACL.LEVEL.MANAGER) end),
             order = orderStart + 6,
             pattern = CONSTANTS.REGEXP_FLOAT_POSITIVE,
+            -- width = 0.6
+        },
+
+        allow_negative_upgrades = {
+            name = CLM.L["Allow negative upgrades"],
+            desc = CLM.L[
+                "Allow those with negative dkp (but within the roll difference) to roll on upgrades against those with positive dkp"
+                ],
+            type = "toggle",
+            disabled = (function() return not ACL:CheckLevel(CONSTANTS.ACL.LEVEL.MANAGER) end),
+            order = orderStart + 4.5,
             -- width = 0.6
         },
     })

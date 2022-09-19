@@ -62,9 +62,18 @@ function AuctionHistoryManager:Initialize()
             local channel = CHANNELS[self:GetPostBidsChannel()] or "OFFICER"
             SendChatMessage(data.link, channel)
             local noBids = true
-            for bidder, bid in pairs(data.bids) do
+            local bidList = {}
+            for _, bid in pairs(data.bidData) do
+                table.insert(bidList, bid)
+            end
+            table.sort(bidList,
+                function(a, b) return CLM.MODULES.AuctionManager:TotalBid(a) > CLM.MODULES.AuctionManager:TotalBid(b) end)
+            for _, bid in ipairs(bidList) do
+
+
                 noBids = false
-                SendChatMessage(bidder .. ": " .. tostring(bid) .. CLM.L[" DKP "], channel)
+                SendChatMessage(bid.name ..
+                    ": " .. tostring(bid.points) .. CLM.L[" DKP "] .. "(" .. getBidTypeName(bid.type) .. ")", channel)
             end
             if noBids then
                 SendChatMessage(CLM.L["No bids"], channel)
@@ -126,7 +135,7 @@ function AuctionHistoryManager:Initialize()
                 local total = CLM.MODULES.AuctionManager:TotalBid(value)
                 local type = roster and roster:GetFieldName(value.type) or getBidTypeName(value.type)
                 local bidName = name
-                if winner and winner.name == bidName then
+                if result.winner and result.winner.name == bidName then
                     bidName = bidName .. " (winner)"
                 end
                 if (value.roll) then
