@@ -969,21 +969,22 @@ end
 function AuctionManager:GetTopBid()
     local topBid = nil
     for _, data in pairs(AuctionManager:BidData()) do
-        if not topBid then
-            topBid = data
-        elseif (-- offspec / dual spec aren't eligible for top bid
+        if (
             data.type == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS or
                 data.type == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE
-            ) and (self:TotalBid(data) > self:TotalBid(topBid))
+            ) and ((not topBid) or (self:TotalBid(data) > self:TotalBid(topBid)))
         then
             topBid = data
         end
-        if (
-            topBid.type == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or topBid.type == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC
-            )
-            and (data.type == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS or data.type == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE)
-        then
-            topBid = data
+    end
+    if not topBid then -- offspec / dual spec go second for top bid
+        for _, data in pairs(AuctionManager:BidData()) do
+            if not topBid then
+                topBid = data
+            elseif self:TotalBid(data) > self:TotalBid(topBid)
+            then
+                topBid = data
+            end
         end
     end
     return topBid
@@ -1014,7 +1015,7 @@ function AuctionManager:GetEligibleBids()
 
         if (data.type ~= CONSTANTS.AUCTION_COMM.BID_PASS)
             and (tonumber(topBid.points) - tonumber(data.points)) <= rollDifference
-            and (self:AllowNegativeUpgrades() or (minEligableBid < 0 or data.points > 0))
+            and (self:AllowNegativeUpgrades() or (minEligableBid <= 0 or data.points >= 0))
         then
             table.insert(bids, data)
             LOG:Debug("minEligableBid (%s) > data.points (%s) = %s", tostring(minEligableBid), tostring(data.points),
