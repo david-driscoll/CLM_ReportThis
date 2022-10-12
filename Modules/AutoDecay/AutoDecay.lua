@@ -61,7 +61,7 @@ function AutoDecay:Initialize()
 
     self.decayQueue = {}
 
-    LedgerManager:ObserveEntryType(CLM.MODELS.LEDGER.DKP.DecayRoster, function(entry)
+    LedgerManager:ObserveEntryType(CLM.MODELS.LEDGER.POINTS.DecayRoster, function(entry)
         self.rosterCreated[entry:rosterUid()] = tonumber(entry:time())
         self.lastDecayList[entry:rosterUid()] = tonumber(entry:time())
     end)
