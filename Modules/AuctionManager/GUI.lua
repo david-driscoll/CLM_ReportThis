@@ -28,14 +28,8 @@ local EVENT_FILL_AUCTION_WINDOW = "CLM_AUCTION_WINDOW_FILL"
 
 local whoami = UTILS.whoami()
 local colorGreen = { r = 0.2, g = 0.93, b = 0.2, a = 1.0 }
-local colorYellow = { r = 0.93, g = 0.93, b = 0.2, a = 1.0 }
-local colorRedTransparent = { r = 0.93, g = 0.2, b = 0.2, a = 0.3 }
-local colorGreenTransparent = { r = 0.2, g = 0.93, b = 0.2, a = 0.3 }
-local colorBlueTransparent = { r = 0.2, g = 0.2, b = 0.93, a = 0.3 }
-
-local colorRedTransparentHex = "ED3333"
-local colorGreenTransparentHex = "33ED33"
-local colorBlueTransparentHex = "3333ED"
+local colorTurquoise = { r = 0.2, g = 0.93, b = 0.93, a = 1.0 }
+local colorGold = { r = 0.92, g = 0.70, b = 0.13, a = 1.0 }
 
 local guiOptions = {
     type = "group",
@@ -46,11 +40,9 @@ local function ST_GetHighlightFunction(row)
     return row.cols[5].value
 end
 
-local highlightRole = {
-    ["DAMAGER"] = UTILS.getHighlightMethod(colorRedTransparent),
-    ["TANK"] = UTILS.getHighlightMethod(colorBlueTransparent),
-    ["HEALER"] = UTILS.getHighlightMethod(colorGreenTransparent),
-}
+local function ST_GetActualBidValue(row)
+    return row.cols[3].value
+end
 
 local function GetModifierCombination()
     local combination = ""
@@ -168,6 +160,7 @@ function AuctionManagerGUI:Initialize()
     end
     self.hookedSlots = { wow = {}, elv = {} }
     self.values = {}
+    self.tooltips = {}
     EventManager:RegisterWoWEvent({ "LOOT_OPENED" }, (function(...) self:HandleLootOpenedEvent() end))
     EventManager:RegisterWoWEvent({ "LOOT_CLOSED" }, (function(...) self:HandleLootClosedEvent() end))
     EventManager:RegisterEvent(EVENT_FILL_AUCTION_WINDOW, function(event, data)
@@ -187,6 +180,9 @@ function AuctionManagerGUI:Initialize()
             end
         end
     end)
+    CLM.MODULES.EventManager:RegisterEvent("CLM_UI_RESIZE", (function(event, data)
+        self.top.frame:SetScale(data.scale)
+    end))
     self:RegisterSlash()
     self._initialized = true
 end
@@ -207,9 +203,11 @@ end
 local function CreateBidWindow(self)
     local BidWindowGroup = AceGUI:Create("SimpleGroup")
     BidWindowGroup:SetLayout("Flow")
+    local st = ScrollingTable:CreateST({}, 10, 18, nil, BidWindowGroup.frame)
     local columns = {
+        { name = "", width = 18, DoCellUpdate = UTILS.LibStClassCellUpdate },
         { name = CLM.L["Name"], width = 70 },
-        { name = CLM.L["Spec"], width = 60 },
+        -- { name = CLM.L["Spec"], width = 60 },
         { name = CLM.L["Rank"], width = 100 },
         { name = CLM.L["Type"], width = 60, color = { r = 0.0, g = 0.93, b = 0.0, a = 1.0 },
             -- sort = ScrollingTable.SORT_DSC,
@@ -232,34 +230,32 @@ local function CreateBidWindow(self)
                 end)
             )
         },
+        { name = "", width = 18, DoCellUpdate = UTILS.LibStItemCellUpdate },
+        { name = "", width = 18, DoCellUpdate = UTILS.LibStItemCellUpdate },
     }
-    self.st = ScrollingTable:CreateST(columns, 10, 18, nil, self.top.frame)
-    self.st:EnableSelection(true)
+    self.st = st
+    st:SetDisplayCols(columns)
+    st:EnableSelection(true)
     self.st.frame:SetPoint("BOTTOMLEFT", self.top.frame, "BOTTOMLEFT", 12, 40)
-    self.st.frame:SetBackdropColor(0.1, 0.1, 0.1, 0.1)
+    -- self.st.frame:SetBackdropColor(0.1, 0.1, 0.1, 0.1)
 
     --- selection ---
-    local OnClickHandler = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
-        self.st.DefaultEvents["OnClick"](rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
-        if not AuctionManager:IAmTheAuctioneer() then
-            self.top:SetStatusText("")
-            return
-        end
-
-        local selected = self.st:GetRow(self.st:GetSelection())
-        if type(selected) ~= "table" then return false end
-        if selected.cols == nil then return false end -- Handle column titles click
-        self.awardPlayer = RemoveColorCode(selected.cols[1].value or "")
-        self:UpdateAwardValue()
-        if self.awardPlayer and self.awardPlayer:len() > 0 then
-            self.top:SetStatusText(string.format(CLM.L["Awarding to %s for %d."], self.awardPlayer, self.awardValue))
-        else
-            self.top:SetStatusText("")
-        end
-        return selected
-    end)
     self.st:RegisterEvents({
-        OnClick = OnClickHandler,
+        OnClick = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
+            self.st.DefaultEvents["OnClick"](rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
+
+            local selected = self.st:GetRow(self.st:GetSelection())
+            if type(selected) ~= "table" then return false end
+            if selected.cols == nil then return false end -- Handle column titles click
+            self.awardPlayer = selected.cols[2].value or ""
+            self:UpdateAwardValue()
+            if self.awardPlayer and self.awardPlayer:len() > 0 then
+                self.top:SetStatusText(string.format(CLM.L["Awarding to %s for %d."], self.awardPlayer, self.awardValue))
+            else
+                self.top:SetStatusText("")
+            end
+            return selected
+        end),
         -- OnLeave = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
         --     local status = table.DefaultEvents["OnLeave"](rowFrame, cellFrame, data, cols, row, realrow, column, table,
         --         ...)
@@ -341,87 +337,6 @@ function AuctionManagerGUI:GenerateAuctionOptions()
             width = 2.3,
             order = 2,
             itemLink = "item:" .. tostring(self.itemId),
-        },
-    }
-
-    if not AuctionManager:IAmTheAuctioneer() then
-        return o
-    end
-
-    UTILS.mergeDictsInline(o, {
-        note = {
-            name = CLM.L["Note"],
-            type = "input",
-            set = (function(i, v)
-                self.note = tostring(v)
-                if self.itemId then
-                    if self.note ~= "" then
-                        self.db.notes[self.itemId] = self.note
-                    else
-                        self.db.notes[self.itemId] = nil
-                    end
-                end
-            end),
-            get = (function(i)
-                if self.itemId then
-                    if self.db.notes[self.itemId] then
-                        self.note = self.db.notes[self.itemId]
-                    end
-                end
-                return self.note
-            end),
-            disabled = (function() return not AuctionManager:IsAuctionComplete() end),
-            width = 1.9,
-            order = 8
-        },
-        time_auction = {
-            name = CLM.L["Auction length"],
-            type = "input",
-            set = (function(i, v) self.configuration:Set("auctionTime", v or 0) end),
-            get = (function(i) return tostring(self.configuration:Get("auctionTime")) end),
-            disabled = (function(i) return not AuctionManager:IsAuctionComplete() end),
-            pattern = "%d+",
-            width = 0.4,
-            order = 9
-        },
-        time_antiSnipe = {
-            name = CLM.L["Anti-snipe"],
-            type = "input",
-            set = (function(i, v) self.configuration:Set("antiSnipe", v or 0) end),
-            get = (function(i) return tostring(self.configuration:Get("antiSnipe")) end),
-            disabled = (function(i) return not AuctionManager:IsAuctionComplete() end),
-            pattern = "%d+",
-            width = 0.4,
-            order = 10
-        },
-        auction = {
-            name = (function() return AuctionManager:IsAuctionInProgress() and CLM.L["Stop"] or CLM.L["Start"] end),
-            type = "execute",
-            func = (function()
-                if not AuctionManager:IsAuctionInProgress() then
-                    self:StartAuction()
-                else
-                    AuctionManager:StopAuctionManual()
-                end
-            end),
-            width = 2.75 / 2,
-            order = 11,
-            disabled = (function() return not ((self.itemLink or false) and RaidManager:IsInProgressingRaid()) end)
-        },
-        clear = {
-            name = (function() return CLM.L["Clear"] end),
-            type = "execute",
-            func = (function()
-                -- clear bids
-                AuctionManager:ClearBids()
-                self:Refresh()
-            end),
-            width = 2.75 / 2,
-            order = 11.5,
-            disabled = (
-                function() return AuctionManager:IsAuctionInProgress() or
-                        not ((self.itemLink or false) and RaidManager:IsInProgressingRaid())
-                end)
         },
         auction_results = {
             name = CLM.L["Auction Results"],
@@ -524,6 +439,87 @@ function AuctionManagerGUI:GenerateAuctionOptions()
             width = 0.3,
             order = 16
         }
+    }
+
+    if not AuctionManager:IAmTheAuctioneer() then
+        return o
+    end
+
+    UTILS.mergeDictsInline(o, {
+        note = {
+            name = CLM.L["Note"],
+            type = "input",
+            set = (function(i, v)
+                self.note = tostring(v)
+                if self.itemId then
+                    if self.note ~= "" then
+                        self.db.notes[self.itemId] = self.note
+                    else
+                        self.db.notes[self.itemId] = nil
+                    end
+                end
+            end),
+            get = (function(i)
+                if self.itemId then
+                    if self.db.notes[self.itemId] then
+                        self.note = self.db.notes[self.itemId]
+                    end
+                end
+                return self.note
+            end),
+            disabled = (function() return not AuctionManager:IsAuctionComplete() end),
+            width = 1.9,
+            order = 8
+        },
+        time_auction = {
+            name = CLM.L["Auction length"],
+            type = "input",
+            set = (function(i, v) self.configuration:Set("auctionTime", v or 0) end),
+            get = (function(i) return tostring(self.configuration:Get("auctionTime")) end),
+            disabled = (function(i) return not AuctionManager:IsAuctionComplete() end),
+            pattern = "%d+",
+            width = 0.4,
+            order = 9
+        },
+        time_antiSnipe = {
+            name = CLM.L["Anti-snipe"],
+            type = "input",
+            set = (function(i, v) self.configuration:Set("antiSnipe", v or 0) end),
+            get = (function(i) return tostring(self.configuration:Get("antiSnipe")) end),
+            disabled = (function(i) return not AuctionManager:IsAuctionComplete() end),
+            pattern = "%d+",
+            width = 0.4,
+            order = 10
+        },
+        auction = {
+            name = (function() return AuctionManager:IsAuctionInProgress() and CLM.L["Stop"] or CLM.L["Start"] end),
+            type = "execute",
+            func = (function()
+                if not AuctionManager:IsAuctionInProgress() then
+                    self:StartAuction()
+                else
+                    AuctionManager:StopAuctionManual()
+                end
+            end),
+            width = 2.75 / 2,
+            order = 11,
+            disabled = (function() return not ((self.itemLink or false) and RaidManager:IsInProgressingRaid()) end)
+        },
+        clear = {
+            name = (function() return CLM.L["Clear"] end),
+            type = "execute",
+            func = (function()
+                -- clear bids
+                AuctionManager:ClearBids()
+                self:Refresh()
+            end),
+            width = 2.75 / 2,
+            order = 11.5,
+            disabled = (
+                function() return AuctionManager:IsAuctionInProgress() or
+                        not ((self.itemLink or false) and RaidManager:IsInProgressingRaid())
+                end)
+        }
     })
 
     return o
@@ -542,6 +538,7 @@ function AuctionManagerGUI:Create()
     f:SetHeight(490)
     self.top = f
     UTILS.MakeFrameCloseOnEsc(f.frame, "CLM_Auctioning_GUI")
+    f.frame:SetScale(CLM.GlobalConfigs:GetUIScale())
 
     self.configuration = RosterConfiguration:New()
     self.itemLink = nil
@@ -637,26 +634,33 @@ function AuctionManagerGUI:Refresh()
 
         local tableData = {}
         local topPoints = AuctionManager:GetTopBid()
+
+        local upgradedItems = CLM.MODULES.AuctionManager:UpgradedItems()
+
         local rollDifference = CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(self.raid:Roster(), "rollDifference")
         for name, data in pairs(AuctionManager:BidData()) do
             local profile = ProfileManager:GetProfileByName(name)
             if profile then
-                local row = { cols = {} }
+                local items = upgradedItems[name] or {}
+                local primaryItem = items[1]
+                local secondaryItem = items[2]
+                if (not primaryItem) and secondaryItem then
+                    primaryItem = secondaryItem
+                    secondaryItem = nil
+                end
+
                 local rowColorValue = rowColor(topPoints, rollDifference, data)
-                -- name
-                table.insert(row.cols,
-                    { value = UTILS.ColorCodeText(profile:Name(), UTILS.GetClassColor(profile:Class()).hex) }) -- spec
-                table.insert(row.cols, { value = profile:SpecString() })
-                -- rank
-                table.insert(row.cols, { value = data.rank })
-                -- type
-                table.insert(row.cols, { value = string.lower(self.roster:GetFieldName(data.type)) })
-                -- points
-                table.insert(row.cols, { value = data.points, color = rowColorValue })
-                -- roll
-                table.insert(row.cols, { value = data.roll or "", color = rowColorValue })
-                -- total
-                table.insert(row.cols, { value = AuctionManager:TotalBid(data), color = rowColorValue })
+                local row = { cols = {
+                    { value = profile:ClassInternal() },
+                    { value = profile:Name(), color = UTILS.GetClassColor(profile:Class()) },
+                    { value = data.rank },
+                    { value = string.lower(self.roster:GetFieldName(data.type)) },
+                    { value = data.points, color = rowColorValue },
+                    { value = data.roll or "", color = rowColorValue },
+                    { value = AuctionManager:TotalBid(data), color = rowColorValue },
+                    { value = primaryItem },
+                    { value = secondaryItem },
+                } }
                 table.insert(tableData, row)
             end
         end
@@ -669,7 +673,7 @@ function AuctionManagerGUI:Refresh()
     if AuctionManager:IAmTheAuctioneer() then
         self.top:SetHeight(490)
     else
-        self.top:SetHeight(340)
+        self.top:SetHeight(412)
     end
 end
 

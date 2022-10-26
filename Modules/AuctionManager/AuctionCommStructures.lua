@@ -9,7 +9,7 @@ local AuctionCommDenyBid = MODELS.AuctionCommDenyBid
 local AuctionCommDistributeBid = MODELS.AuctionCommDistributeBid
 
 local AuctionCommResponses = {}
-function AuctionCommResponses:New(object, bidData, bids, passes, hidden, cantUse)
+function AuctionCommResponses:New(object, bidData, bids, passes, hidden, cantUse, bidTypes, upgradedItems)
     local isCopyConstructor = (type(object) == "table")
 
     local o = isCopyConstructor and object or {}
@@ -42,6 +42,8 @@ function AuctionCommResponses:New(object, bidData, bids, passes, hidden, cantUse
     o.p = passes
     o.h = hidden
     o.c = cantUse
+    o.t = bidTypes
+    o.u = upgradedItems
 
     return o
 end
@@ -52,6 +54,14 @@ end
 
 function AuctionCommResponses:Bids()
     return self.b
+end
+
+function AuctionCommResponses:BidTypes()
+    return self.t
+end
+
+function AuctionCommResponses:UpgradedItems()
+    return self.u
 end
 
 function AuctionCommResponses:Passes()

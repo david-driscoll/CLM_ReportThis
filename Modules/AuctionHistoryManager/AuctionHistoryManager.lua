@@ -52,11 +52,13 @@ function AuctionHistoryManager:Initialize()
     CLM.MODULES.EventManager:RegisterEvent(EVENT_END_AUCTION, function(_, data)
         if not self:GetEnabled() then return end
         tinsert(self.entries, 1, {
-            link = data.link,
-            id   = data.id,
-            bids = data.bids,
-            time = data.time,
-            data = data.bidData
+            link     = data.link,
+            id       = data.id,
+            bids     = data.bids,
+            names    = data.bidNames,
+            upgraded = data.items,
+            time     = data.time,
+            data     = data.bidData
         })
         if self:GetPostBids() and data.postToChat then
             local channel = CHANNELS[self:GetPostBidsChannel()] or "OFFICER"
@@ -69,11 +71,30 @@ function AuctionHistoryManager:Initialize()
             table.sort(bidList,
                 function(a, b) return CLM.MODULES.AuctionManager:TotalBid(a) > CLM.MODULES.AuctionManager:TotalBid(b) end)
             for _, bid in ipairs(bidList) do
-
-
                 noBids = false
-                SendChatMessage(bid.name ..
-                    ": " .. tostring(bid.points) .. CLM.L[" DKP "] .. "(" .. getBidTypeName(bid.type) .. ")", channel)
+
+                local bidder = bid.name;
+                local bidName = ""
+                if data.bidNames[bidder] then
+                    bidName = " - " .. data.bidNames[bidder]
+                end
+
+                local items = ""
+
+                if data.items and data.items[bidder] then
+                    local _, item1 = GetItemInfo(data.items[bidder][1] or 0)
+                    local _, item2 = GetItemInfo(data.items[bidder][2] or 0)
+
+                    if item1 or item2 then
+                        items = CLM.L[" over "]
+                        if item1 then items = items .. item1 end
+                        if item2 then items = items .. item2 end
+                    end
+                end
+
+                SendChatMessage(bidder ..
+                    ": " .. tostring(bid.points) .. CLM.L[" DKP "] .. "(" .. getBidTypeName(bid.type) .. ") " .. items,
+                    channel)
             end
             if noBids then
                 SendChatMessage(CLM.L["No bids"], channel)

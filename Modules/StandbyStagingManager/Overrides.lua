@@ -45,7 +45,7 @@ local function HandleSubscribe(self, data, sender)
     else
         LOG:Warning("Missing profile for player %s", sender)
     end
-    CLM.GUI.Standings:Refresh(true)
+    CLM.GUI.Unified:Refresh(true)
 end
 
 local function HandleRevoke(self, data, sender)
@@ -84,7 +84,7 @@ local function HandleRevoke(self, data, sender)
     else
         LOG:Warning("Missing profile for player %s", sender)
     end
-    CLM.GUI.Standings:Refresh(true)
+    CLM.GUI.Unified:Refresh(true)
 end
 
 local oldInitialize = StandbyStagingManager.Initialize
