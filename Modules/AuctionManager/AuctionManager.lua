@@ -938,13 +938,13 @@ function AuctionManager:UpdateBidsInternal(name, bid)
 
     local function setBidData(userResponses, name, bid, value)
         print("Processing bid " .. name .. " " .. (value or 0))
-        userResponses.bids[name] = value or bid:Value()
+        userResponses.bids[name] = value or 0
         userResponses.bidTypes[name] = bid:Type()
         userResponses.upgradedItems[name] = bid:Items()
         userResponses.bidData[name] = {
             name = name,
             type = bid:Type(),
-            points = value or bid:Value(),
+            points = value or 0,
             rank = UTILS.GetGuildRank(name),
         }
         userResponses.passes[name] = bid:Type() == CONSTANTS.BID_TYPE.PASS or nil
