@@ -28,15 +28,28 @@ function AuctionCommResponses:New(object, bidData, bids, passes, hidden, cantUse
         -- }
 
         for key, value in pairs(o.l or {}) do
+            local isOffspec = value.type == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or
+                value.type == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC
+            local isMain = not (string.find(value.rank, "Alt") ~= nil or string.find(value.rank, "Casual") ~= nil)
             o.l[key].name = key
-            o.l[key].total = o.l[key].points + tonumber(o.l[key].roll or "0")
+            o.l[key].total = value.points + tonumber(o.l[key].roll or "0")
+            o.l[key].isMain = isMain
+            o.l[key].isOffspec = isOffspec
+            o.l[key].isUpgrade = value.type == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS or
+                value.type == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE
         end
         return o
     end
 
+
     o.l = {}
     for key, value in pairs(bidData or {}) do
-        o.l[key] = { type = value.type, rank = value.rank, points = value.points, roll = value.roll }
+        o.l[key] = {
+            type = value.type,
+            rank = value.rank,
+            points = value.points,
+            roll = value.roll
+        }
     end
     o.b = bids
     o.p = passes

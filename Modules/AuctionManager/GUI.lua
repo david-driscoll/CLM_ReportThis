@@ -36,14 +36,6 @@ local guiOptions = {
     args = {}
 }
 
-local function ST_GetHighlightFunction(row)
-    return row.cols[5].value
-end
-
-local function ST_GetActualBidValue(row)
-    return row.cols[3].value
-end
-
 local function GetModifierCombination()
     local combination = ""
 
@@ -200,26 +192,51 @@ function AuctionManagerGUI:HandleLootClosedEvent()
     self.lootWindowIsOpen = false
 end
 
+local function getHighlightMethod(highlightColor)
+    return (function(rowFrame, cellFrame, data, cols, row, realrow, column, fShow, table, ...)
+        table.DoCellUpdate(rowFrame, cellFrame, data, cols, row, realrow, column, fShow, table, ...)
+        local color
+        local selected = (table.selected == realrow)
+        if selected then
+            color = table:GetDefaultHighlight()
+        else
+            color = highlightColor
+        end
+
+        table:SetHighLightColor(rowFrame, color)
+    end)
+end
+
+local highlightAlt = getHighlightMethod({ r = 0.53, g = 0, b = 0.75, a = 0.3 })
+local highlightOffspec = getHighlightMethod({ r = 0.9, g = 0, b = 0.45, a = 0.3 })
+
+local function ST_GetHighlight(row)
+    return row.cols[11].value
+end
+
 local function CreateBidWindow(self)
     local BidWindowGroup = AceGUI:Create("SimpleGroup")
     BidWindowGroup:SetLayout("Flow")
     local st = ScrollingTable:CreateST({}, 10, 18, nil, BidWindowGroup.frame)
     local columns = {
         { name = "", width = 18, DoCellUpdate = UTILS.LibStClassCellUpdate },
-        { name = CLM.L["Name"], width = 70 },
+        { name = CLM.L["Name"], width = 76 },
         -- { name = CLM.L["Spec"], width = 60 },
         { name = CLM.L["Rank"], width = 100 },
-        { name = CLM.L["Type"], width = 60, color = { r = 0.0, g = 0.93, b = 0.0, a = 1.0 },
+        { name = CLM.L["Main"], width = 35 },
+        { name = CLM.L["Type"], width = 56, color = { r = 0.0, g = 0.93, b = 0.0, a = 1.0 },
             -- sort = ScrollingTable.SORT_DSC,
             -- sortnext = 5
         },
         { name = CLM.L["Points"], width = 50, color = { r = 0.0, g = 0.93, b = 0.0, a = 1.0 },
             -- sort = ScrollingTable.SORT_DSC,
             -- sortnext = 5
+            align = "CENTER"
         },
-        { name = CLM.L["Roll"], width = 60, color = { r = 0.0, g = 0.93, b = 0.0, a = 1.0 },
+        { name = CLM.L["Roll"], width = 35, color = { r = 0.0, g = 0.93, b = 0.0, a = 1.0 },
             -- sort = ScrollingTable.SORT_DSC,
             -- sortnext = 5
+            align = "CENTER"
         },
         { name = CLM.L["Total"], width = 50, color = { r = 0.0, g = 0.93, b = 0.0, a = 1.0 },
             sort = ScrollingTable.SORT_DSC,
@@ -228,7 +245,8 @@ local function CreateBidWindow(self)
                 (function(a1, b1)
                     return tonumber(a1), tonumber(b1)
                 end)
-            )
+            ),
+            align = "CENTER"
         },
         { name = "", width = 18, DoCellUpdate = UTILS.LibStItemCellUpdate },
         { name = "", width = 18, DoCellUpdate = UTILS.LibStItemCellUpdate },
@@ -239,10 +257,37 @@ local function CreateBidWindow(self)
     self.st.frame:SetPoint("BOTTOMLEFT", self.top.frame, "BOTTOMLEFT", 12, 40)
     -- self.st.frame:SetBackdropColor(0.1, 0.1, 0.1, 0.1)
 
+    local menuRowData
+    local RightClickMenu = CLM.UTILS.GenerateDropDownMenu(
+        {
+            {
+                title = CLM.L["Remove"],
+                func = (function()
+                    local name = menuRowData.cols[2].value or ""
+                    if name then
+                        AuctionManager:RemoveBid(name)
+                        self:Refresh()
+                    end
+                end),
+                color = "cc0000"
+            }
+        },
+        CLM.MODULES.ACL:CheckLevel(CLM.CONSTANTS.ACL.LEVEL.ASSISTANT),
+        CLM.MODULES.ACL:CheckLevel(CLM.CONSTANTS.ACL.LEVEL.MANAGER)
+    )
+
     --- selection ---
     self.st:RegisterEvents({
-        OnClick = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
-            self.st.DefaultEvents["OnClick"](rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
+        OnClick = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, button, ...)
+            local rightButton = (button == "RightButton")
+            if rightButton then
+                menuRowData = table:GetRow(realrow)
+                UTILS.LibDD:CloseDropDownMenus()
+                UTILS.LibDD:ToggleDropDownMenu(1, nil, RightClickMenu, cellFrame, -20, 0)
+                return
+            end
+
+            self.st.DefaultEvents["OnClick"](rowFrame, cellFrame, data, cols, row, realrow, column, table, button, ...)
 
             local selected = self.st:GetRow(self.st:GetSelection())
             if type(selected) ~= "table" then return false end
@@ -255,6 +300,25 @@ local function CreateBidWindow(self)
                 self.top:SetStatusText("")
             end
             return selected
+        end),
+
+        -- OnEnter handler -> on hover
+        OnEnter = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
+            local status = table.DefaultEvents["OnEnter"](rowFrame, cellFrame, data, cols, row, realrow, column, table,
+                ...)
+            return status
+        end),
+        -- OnLeave handler -> on hover out
+        OnLeave = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
+            local status = table.DefaultEvents["OnLeave"](rowFrame, cellFrame, data, cols, row, realrow, column, table,
+                ...)
+            local rowData = table:GetRow(realrow)
+            if not rowData or not rowData.cols then return status end
+            local highlight = ST_GetHighlight(rowData)
+            if highlight then
+                highlight(rowFrame, cellFrame, data, cols, row, realrow, column, true, table, ...)
+            end
+            return status
         end),
         -- OnLeave = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
         --     local status = table.DefaultEvents["OnLeave"](rowFrame, cellFrame, data, cols, row, realrow, column, table,
@@ -309,11 +373,12 @@ function AuctionManagerGUI:GenerateAuctionOptions()
     local o = {
         icon = {
             name = "",
-            type = "description",
+            type = "execute",
             image = icon,
+            func = (function() end),
+            itemLink = "item:" .. tostring(self.itemId),
             width = 0.4,
             order = 1,
-            itemLink = "item:" .. tostring(self.itemId),
         },
         item = {
             name = CLM.L["Item"],
@@ -357,7 +422,7 @@ function AuctionManagerGUI:GenerateAuctionOptions()
             end),
             get = (function(i) return tostring(self.awardValue) end),
             disabled = (function(i) return (not (self.itemLink or false)) or AuctionManager:IsAuctionInProgress() end),
-            width = 0.7,
+            width = 0.5,
             order = 14
         },
         award = {
@@ -387,7 +452,7 @@ function AuctionManagerGUI:GenerateAuctionOptions()
                     tostring(self.awardValue)
                 )
             end),
-            width = 0.7,
+            width = 0.5,
             order = 15,
             disabled = (function() return (not (self.itemLink or false)) or AuctionManager:IsAuctionInProgress() end)
         },
@@ -438,7 +503,25 @@ function AuctionManagerGUI:GenerateAuctionOptions()
             image = "Interface\\Icons\\INV_Misc_QuestionMark",
             width = 0.3,
             order = 16
-        }
+        },
+
+        request_roll = {
+            name = CLM.L["Request Roll"],
+            type = "execute",
+            func = (function()
+                AuctionManager:RequestRollOff()
+            end),
+            width = 0.7,
+            order = 17,
+            disabled = (function()
+                if AuctionManager:IsAuctionComplete() then return true end
+                local bids = AuctionManager:GetEligibleBids()
+                if #bids <= 1 then
+                    return true
+                end
+                return false
+            end)
+        },
     }
 
     if not AuctionManager:IAmTheAuctioneer() then
@@ -519,8 +602,30 @@ function AuctionManagerGUI:GenerateAuctionOptions()
                 function() return AuctionManager:IsAuctionInProgress() or
                         not ((self.itemLink or false) and RaidManager:IsInProgressingRaid())
                 end)
-        }
+        },
     })
+
+    local nextInQueue = CLM.MODULES.LootQueueManager:GetQueue()[1]
+    if nextInQueue then
+
+        local _, _, _, _, icon = GetItemInfoInstant(nextInQueue.link)
+        o.nextInQueue = {
+            name = "Next",
+            type = "execute",
+            image = icon,
+            func = (function()
+                CLM.MODULES.EventManager:DispatchEvent("CLM_AUCTION_WINDOW_FILL", {
+                    link = nextInQueue.link,
+                    start = false
+                })
+            end),
+            itemLink = "item:" .. tostring(nextInQueue.id),
+            width = 0.4,
+            order = 3,
+        }
+
+        o.item.width = o.item.width - 0.4
+    end
 
     return o
 end
@@ -569,6 +674,7 @@ function AuctionManagerGUI:StartAuction()
     self:ClearSelectedBid()
     AuctionManager:StartAuction(self.itemId, self.itemLink, self.itemEquipLoc, self.values, self.note, self.raid,
         self.configuration)
+    self:Refresh()
 end
 
 function AuctionManagerGUI:UpdateAwardValue()
@@ -603,7 +709,7 @@ function AuctionManagerGUI:UpdateBids()
     self:Refresh()
 end
 
-local function rowColor(topBid, rollDifference, data)
+local function rowColor(topBid, rollDifference, data, topBidIsUpgrade, topBidIsMain)
 
     local rowPoints = AuctionManager:TotalBid(data)
     local topPoints = AuctionManager:TotalBid(topBid)
@@ -633,7 +739,7 @@ function AuctionManagerGUI:Refresh()
         end
 
         local tableData = {}
-        local topPoints = AuctionManager:GetTopBid()
+        local topPoints, isUpgradeOrBonus, isMain = AuctionManager:GetTopBid()
 
         local upgradedItems = CLM.MODULES.AuctionManager:UpgradedItems()
 
@@ -649,18 +755,33 @@ function AuctionManagerGUI:Refresh()
                     secondaryItem = nil
                 end
 
-                local rowColorValue = rowColor(topPoints, rollDifference, data)
-                local row = { cols = {
-                    { value = profile:ClassInternal() },
-                    { value = profile:Name(), color = UTILS.GetClassColor(profile:Class()) },
-                    { value = data.rank },
-                    { value = string.lower(self.roster:GetFieldName(data.type)) },
-                    { value = data.points, color = rowColorValue },
-                    { value = data.roll or "", color = rowColorValue },
-                    { value = AuctionManager:TotalBid(data), color = rowColorValue },
-                    { value = primaryItem },
-                    { value = secondaryItem },
-                } }
+                local highlight
+                local rowColorValue = rowColor(topPoints, rollDifference, data, isUpgradeOrBonus, isMain)
+
+                if isUpgradeOrBonus and isMain and not data.isMain then
+                    highlight = highlightAlt
+                end
+
+                if data.isOffspec then
+                    highlight = highlightOffspec
+                end
+
+                local row = {
+                    cols = {
+                        { value = profile:ClassInternal() },
+                        { value = profile:Name(), color = UTILS.GetClassColor(profile:Class()) },
+                        { value = data.rank },
+                        { value = data.isMain and "Yes" or "No", color = rowColorValue },
+                        { value = string.lower(self.roster:GetFieldName(data.type)) },
+                        { value = data.points, color = rowColorValue },
+                        { value = data.roll or "", color = rowColorValue },
+                        { value = AuctionManager:TotalBid(data), color = rowColorValue },
+                        { value = primaryItem },
+                        { value = secondaryItem },
+                        { value = highlight }
+                    },
+                    DoCellUpdate = highlight
+                }
                 table.insert(tableData, row)
             end
         end

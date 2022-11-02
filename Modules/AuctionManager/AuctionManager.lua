@@ -24,6 +24,14 @@ local function InitializeDB(self)
     })
 end
 
+local function getBidTypeName(type)
+    if type == CONSTANTS.BID_TYPE[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.OFFSPEC] then return "Offspec" end
+    if type == CONSTANTS.BID_TYPE[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.DUALSPEC] then return "Dual Spec" end
+    if type == CONSTANTS.BID_TYPE[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.UPGRADE] then return "Upgrade" end
+    if type == CONSTANTS.BID_TYPE[CONSTANTS.REPORTTHIS.SLOT_VALUE_TIER.BONUS] then return "Bonus" end
+    return "Unknown"
+end
+
 function AuctionManager:Initialize()
     LOG:Trace("AuctionManager:Initialize()")
 
@@ -67,8 +75,12 @@ function AuctionManager:Initialize()
 
             local result = AuctionManager.userResponses.bidData[name]
 
+            local _, minPoints = AuctionManager:GetEligibleBids()
+
             if result.roll then
                 UTILS.SendChatMessage(CLM.L["Your have already rolled."], "WHISPER", nil, name)
+            elseif result.points < minPoints then
+                UTILS.SendChatMessage(CLM.L["Your are not eligable."], "WHISPER", nil, name)
             else
                 result.roll = roll
                 AuctionManager:UpdateBidList()
@@ -467,9 +479,10 @@ function AuctionManager:RequestRollOff()
         else
             local diff = value.points - minPoints
             if diff == 0 then
-                table.insert(candidates, value.name .. " [!" .. string.lower(value.type) .. "]")
+                table.insert(candidates, value.name .. " [!" .. string.lower(getBidTypeName(value.type)) .. "]")
             else
-                table.insert(candidates, value.name .. " [!" .. string.lower(value.type) .. "] (+" .. diff .. ")")
+                table.insert(candidates,
+                    value.name .. " [!" .. string.lower(getBidTypeName(value.type)) .. "] (+" .. diff .. ")")
             end
         end
 
@@ -909,9 +922,11 @@ function AuctionManager:UpdateBid(name, bid)
     if not self:IsAuctionInProgress() then return false, CONSTANTS.AUCTION_COMM.DENY_BID_REASON.NO_AUCTION_IN_PROGRESS end
     local accept, reason = self:ValidateBid(name, bid)
     if accept then
-        self:UpdateBidsInternal(name, bid)
+        local announce = self:UpdateBidsInternal(name, bid)
         self:SendBidAccepted(name)
-        self:AnnounceBid(name, bid)
+        if announce then
+            self:AnnounceBid(name, bid)
+        end
     else
         LOG:Debug("Bid denied %s", reason)
         self:SendBidDenied(name, reason)
@@ -934,10 +949,22 @@ function AuctionManager:GetMaxCost(raidOrRoster, itemId)
     return UTILS.GetMaxCost(raidOrRoster or self.raid, itemId)
 end
 
+function AuctionManager:RemoveBid(name)
+    self.userResponses.passes[name] = nil
+    self.userResponses.bids[name] = nil
+    self.userResponses.upgradedItems[name] = nil
+    self.userResponses.bidData[name] = nil
+    self:UpdateBidList()
+end
+
 function AuctionManager:UpdateBidsInternal(name, bid)
 
     local function setBidData(userResponses, name, bid, value)
-        print("Processing bid " .. name .. " " .. (value or 0))
+        -- print("Processing bid " .. name .. " " .. (value or 0))
+        local rank = UTILS.GetGuildRank(name)
+        local isOffspec = bid:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or
+            bid:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC
+        local isMain = not (string.find(rank, "Alt") ~= nil or string.find(rank, "Casual") ~= nil)
         userResponses.bids[name] = value or 0
         userResponses.bidTypes[name] = bid:Type()
         userResponses.upgradedItems[name] = bid:Items()
@@ -945,7 +972,11 @@ function AuctionManager:UpdateBidsInternal(name, bid)
             name = name,
             type = bid:Type(),
             points = value or 0,
-            rank = UTILS.GetGuildRank(name),
+            rank = rank,
+            isMain = isMain,
+            isOffspec = isOffspec,
+            isUpgrade = bid:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS or
+                bid:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE
         }
         userResponses.passes[name] = bid:Type() == CONSTANTS.BID_TYPE.PASS or nil
     end
@@ -976,18 +1007,18 @@ function AuctionManager:UpdateBidsInternal(name, bid)
             bid.b = CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE
         end
         setBidData(self.userResponses, name, bid, points)
-        return false
+        return true
     end
 
     if bid:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE then
         if points > upgradeCost then points = upgradeCost end
         setBidData(self.userResponses, name, bid, points)
-        return false
+        return true
     end
 
     if bid:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or bid:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC then
         setBidData(self.userResponses, name, bid, offspecCost)
-        return false
+        return true
     end
 
     local bidType = AuctionManager:InferBidType(bid)
@@ -1000,7 +1031,7 @@ function AuctionManager:UpdateBidsInternal(name, bid)
         end
         if bidType == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC then points = offspecCost end
         setBidData(self.userResponses, name, bid, points)
-        return false
+        return true
     end
 
     self.userResponses.bids[name] = nil
@@ -1053,16 +1084,22 @@ end
 function AuctionManager:GetTopBid()
     local topBid = nil
     for _, data in pairs(AuctionManager:BidData()) do
-        if (
-            data.type == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS or
-                data.type == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE
-            ) and ((not topBid) or (self:TotalBid(data) > self:TotalBid(topBid)))
-        then
-            topBid = data
+        if data.isMain and data.isUpgrade then
+            if not topBid then
+                topBid = data
+            elseif topBid
+                and self:TotalBid(data) > self:TotalBid(topBid)
+            then
+                topBid = data
+            end
         end
     end
-    if not topBid then -- offspec / dual spec go second for top bid
-        for _, data in pairs(AuctionManager:BidData()) do
+    if topBid then
+        return topBid, true, true
+    end
+
+    for _, data in pairs(AuctionManager:BidData()) do
+        if not data.isMain and data.isUpgrade then
             if not topBid then
                 topBid = data
             elseif self:TotalBid(data) > self:TotalBid(topBid)
@@ -1071,7 +1108,19 @@ function AuctionManager:GetTopBid()
             end
         end
     end
-    return topBid
+    if topBid then
+        return topBid, true, false
+    end
+
+    for _, data in pairs(AuctionManager:BidData()) do
+        if not topBid then
+            topBid = data
+        elseif self:TotalBid(data) > self:TotalBid(topBid)
+        then
+            topBid = data
+        end
+    end
+    return topBid, false, false
 end
 
 function AuctionManager:CalculateItemCost(player)
@@ -1083,8 +1132,7 @@ end
 
 function AuctionManager:GetEligibleBids()
     local bids = {}
-    local hasUpgradeOrBonus = false
-    local topBid = self:GetTopBid()
+    local topBid, hasUpgradeOrBonus, hasMain = self:GetTopBid()
     if not topBid then
         return bids, 0
     end
@@ -1093,13 +1141,13 @@ function AuctionManager:GetEligibleBids()
     LOG:Debug("minEligableBid: %s", minEligableBid)
     local rollDifference = self:GetRollDifference()
     for _, data in pairs(AuctionManager:BidData()) do
-        hasUpgradeOrBonus = hasUpgradeOrBonus
-            or data.type == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS
-            or data.type == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE
+        local isUpgrade = hasUpgradeOrBonus and data.isUpgrade
+        local isOffspec = not hasUpgradeOrBonus and data.isOffspec
 
-        if (data.type ~= CONSTANTS.AUCTION_COMM.BID_PASS)
-            and (tonumber(topBid.points) - tonumber(data.points)) <= rollDifference
+        if (isUpgrade or isOffspec) and
+            (tonumber(topBid.points) - tonumber(data.points)) <= rollDifference
             and (self:AllowNegativeUpgrades() or (minEligableBid <= 0 or data.points >= 0))
+        --(data.type ~= CONSTANTS.AUCTION_COMM.BID_PASS)
         then
             table.insert(bids, data)
             LOG:Debug("minEligableBid (%s) > data.points (%s) = %s", tostring(minEligableBid), tostring(data.points),
@@ -1112,10 +1160,25 @@ function AuctionManager:GetEligibleBids()
     end
     if hasUpgradeOrBonus then
         for index, value in ipairs(bids) do
-            if value.type == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or
-                value.type == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC then
+            if value.isOffspec then
                 table.remove(bids, index)
             end
+        end
+    end
+    if hasMain then
+        for index, value in ipairs(bids) do
+            if not value.isMain then
+                table.remove(bids, index)
+            end
+        end
+    end
+
+    -- update incase one of the items has been removd
+    minEligableBid = topBid.points
+    for index, value in ipairs(bids) do
+        if minEligableBid > value.points then
+            LOG:Debug("minEligableBid: %s", minEligableBid)
+            minEligableBid = value.points
         end
     end
     table.sort(bids, function(a, b) return a.name > b.name end)
