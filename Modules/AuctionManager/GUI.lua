@@ -376,7 +376,7 @@ function AuctionManagerGUI:GenerateAuctionOptions()
             type = "execute",
             image = icon,
             func = (function() end),
-            itemLink = "item:" .. tostring(self.itemId),
+            tooltipHyperlink = "item:" .. tostring(self.itemId),
             width = 0.4,
             order = 1,
         },
@@ -401,7 +401,7 @@ function AuctionManagerGUI:GenerateAuctionOptions()
             --     function() return not AuctionManager:IAmTheAuctioneer() or not AuctionManager:IsAuctionComplete() end),
             width = 2.3,
             order = 2,
-            itemLink = "item:" .. tostring(self.itemId),
+            tooltipHyperlink = "item:" .. tostring(self.itemId),
         },
         auction_results = {
             name = CLM.L["Auction Results"],
@@ -619,7 +619,7 @@ function AuctionManagerGUI:GenerateAuctionOptions()
                     start = false
                 })
             end),
-            itemLink = "item:" .. tostring(nextInQueue.id),
+            tooltipHyperlink = "item:" .. tostring(nextInQueue.id),
             width = 0.4,
             order = 3,
         }
