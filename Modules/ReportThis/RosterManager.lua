@@ -102,6 +102,12 @@ function RosterManagerOptions:Initialize()
         auction_allow_negative_upgrades_set = (function(name, value)
             SetRosterOption(name, "allowNegativeUpgrades", value)
         end),
+        auction_main_priority_get = (function(name)
+            return GetRosterOption(name, "mainPriority")
+        end),
+        auction_main_priority_set = (function(name, value)
+            SetRosterOption(name, "mainPriority", value)
+        end),
     })
 end
 
@@ -230,6 +236,17 @@ function RosterManagerOptions:GenerateRosterOptions(name)
             type = "toggle",
             disabled = (function() return not ACL:CheckLevel(CONSTANTS.ACL.LEVEL.MANAGER) end),
             order = orderStart + 4.5,
+            -- width = 0.6
+        },
+
+        main_priority = {
+            name = CLM.L["Mains have priority"],
+            desc = CLM.L[
+                "Mains are given priority with upgrade and bonus over alts and cauals"
+                ],
+            type = "toggle",
+            disabled = (function() return not ACL:CheckLevel(CONSTANTS.ACL.LEVEL.MANAGER) end),
+            order = orderStart + 4.3,
             -- width = 0.6
         },
     })

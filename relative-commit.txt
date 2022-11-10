@@ -1,3 +1,3 @@
-relative-commit
-f3766d91cf7c4613a54f218e299159cd9bc5fc59
-https://github.com/ClassicLootManager/ClassicLootManager/compare/f3766d91cf7c4613a54f218e299159cd9bc5fc59...main
+relative-release
+v2.6.0
+https://github.com/ClassicLootManager/ClassicLootManager/compare/v2.6.0...master

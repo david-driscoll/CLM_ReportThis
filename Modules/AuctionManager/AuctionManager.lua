@@ -281,6 +281,7 @@ function AuctionManager:StartAuction(itemId, itemLink, itemSlot, values, note, r
             return false
         end
     end
+    self.useOS = configuration:Get("useOS")
     self.values = values
     self.acceptedTierValues = {}
     for _, val in pairs(self.values) do
@@ -396,9 +397,11 @@ local function AuctionEnd(self, postToChat)
         if type == CONSTANTS.BID_TYPE.OFF_SPEC then
             bidTypeString = CLM.L["OS"]
         else
-            local name = self.raid:Roster():GetFieldName(type)
-            if name ~= "" then
-                bidTypeString = name
+            if self.raid:Roster():GetConfiguration("namedButtons") then
+                local name = self.raid:Roster():GetFieldName(type)
+                if name ~= "" then
+                    bidTypeString = name
+                end
             end
         end
         bidTypeNames[bidder] = bidTypeString
@@ -517,10 +520,12 @@ function AuctionManager:SendAuctionStart(rosterUid)
             self.antiSnipe,
             self.note,
             self.minimalIncrement,
+            not self.useOS,
             rosterUid
         )
     )
-    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID, nil,
+        CONSTANTS.COMMS.PRIORITY.ALERT)
 end
 
 function AuctionManager:SendAuctionEnd()
@@ -528,7 +533,8 @@ function AuctionManager:SendAuctionEnd()
     self.auctionInProgress = false
     if not self:IAmTheAuctioneer() then return end
     local message = CLM.MODELS.AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.STOP_AUCTION, {})
-    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID, nil,
+        CONSTANTS.COMMS.PRIORITY.ALERT)
 end
 
 function AuctionManager:SendBidList()
@@ -555,7 +561,8 @@ function AuctionManager:SendRollStart()
     self.rollInProgress = true
     if not self:IAmTheAuctioneer() then return end
     local message = CLM.MODELS.AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.START_ROLL, {})
-    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID, nil,
+        CONSTANTS.COMMS.PRIORITY.ALERT)
 end
 
 function AuctionManager:SendRollEnd()
@@ -563,13 +570,15 @@ function AuctionManager:SendRollEnd()
     self.rollInProgress = false
     if not self:IAmTheAuctioneer() then return end
     local message = CLM.MODELS.AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.STOP_ROLL, {})
-    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID, nil,
+        CONSTANTS.COMMS.PRIORITY.ALERT)
 end
 
 function AuctionManager:SendAntiSnipe()
     if not self.auctionInProgress or not self:IAmTheAuctioneer() then return end
     local message = CLM.MODELS.AuctionCommStructure:New(CONSTANTS.AUCTION_COMM.TYPE.ANTISNIPE, {})
-    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID)
+    CLM.MODULES.Comms:Send(AUCTION_COMM_PREFIX, message, CONSTANTS.COMMS.DISTRIBUTION.RAID, nil,
+        CONSTANTS.COMMS.PRIORITY.ALERT)
 end
 
 function AuctionManager:SendBidAccepted(name)
@@ -964,7 +973,7 @@ function AuctionManager:UpdateBidsInternal(name, bid)
         local rank = UTILS.GetGuildRank(name)
         local isOffspec = bid:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or
             bid:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC
-        local isMain = not (string.find(rank, "Alt") ~= nil or string.find(rank, "Casual") ~= nil)
+        local isMain = self:RankHasPriority(rank)
         userResponses.bids[name] = value or 0
         userResponses.bidTypes[name] = bid:Type()
         userResponses.upgradedItems[name] = bid:Items()
@@ -1142,9 +1151,11 @@ function AuctionManager:GetEligibleBids()
     local rollDifference = self:GetRollDifference()
     for _, data in pairs(AuctionManager:BidData()) do
         local isUpgrade = hasUpgradeOrBonus and data.isUpgrade
-        local isOffspec = not hasUpgradeOrBonus and data.isOffspec
+        local isMain = isUpgrade and hasMain and data.isMain
+        local isAlt = isUpgrade and not hasMain and not data.isMain
+        local isOffspec = not isUpgrade and data.isOffspec
 
-        if (isUpgrade or isOffspec) and
+        if (isOffspec or isMain or isAlt) and
             (tonumber(topBid.points) - tonumber(data.points)) <= rollDifference
             and (self:AllowNegativeUpgrades() or (minEligableBid <= 0 or data.points >= 0))
         --(data.type ~= CONSTANTS.AUCTION_COMM.BID_PASS)
@@ -1158,29 +1169,7 @@ function AuctionManager:GetEligibleBids()
             end
         end
     end
-    if hasUpgradeOrBonus then
-        for index, value in ipairs(bids) do
-            if value.isOffspec then
-                table.remove(bids, index)
-            end
-        end
-    end
-    if hasMain then
-        for index, value in ipairs(bids) do
-            if not value.isMain then
-                table.remove(bids, index)
-            end
-        end
-    end
 
-    -- update incase one of the items has been removd
-    minEligableBid = topBid.points
-    for index, value in ipairs(bids) do
-        if minEligableBid > value.points then
-            LOG:Debug("minEligableBid: %s", minEligableBid)
-            minEligableBid = value.points
-        end
-    end
     table.sort(bids, function(a, b) return a.name > b.name end)
     return bids, minEligableBid, not hasUpgradeOrBonus
 end
@@ -1191,6 +1180,17 @@ end
 
 function AuctionManager:AllowNegativeUpgrades()
     return CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(self.raid:Roster(), "allowNegativeUpgrades")
+end
+
+function AuctionManager:GetMainPriority()
+    return CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(self.raid:Roster(), "mainPriority")
+end
+
+function AuctionManager:RankHasPriority(rank)
+    if self:GetMainPriority() then
+        return not (string.find(rank, "Alt") ~= nil or string.find(rank, "Casual") ~= nil)
+    end
+    return true
 end
 
 function AuctionManager:Passes()
@@ -1311,6 +1311,7 @@ CONSTANTS.AUCTION_COMM = {
         NO_AUCTION_IN_PROGRESS = 8,
         CANCELLING_NOT_ALLOWED = 9,
         PASSING_NOT_ALLOWED = 10,
+        OFF_SPEC_NOT_ALLOWED = 11,
     },
     DENY_BID_REASONS        = UTILS.Set({
         1, -- NOT_IN_ROSTER
@@ -1322,7 +1323,8 @@ CONSTANTS.AUCTION_COMM = {
         7, -- BID_INCREMENT_TOO_LOW
         8, -- NO_AUCTION_IN_PROGRESS
         9, -- CANCELLING_NOT_ALLOWED
-        10 -- PASSING_NOT_ALLOWED
+        10, -- PASSING_NOT_ALLOWED
+        11, -- OFF_SPEC_NOT_ALLOWED
     }),
     DENY_BID_REASONS_STRING = {
         [1] = CLM.L["Not in a roster"],
@@ -1334,7 +1336,8 @@ CONSTANTS.AUCTION_COMM = {
         [7] = CLM.L["Bid increment too low"],
         [8] = CLM.L["No auction in progress"],
         [9] = CLM.L["Bid cancelling not allowed"],
-        [10] = CLM.L["Passing after bidding not allowed"]
+        [10] = CLM.L["Passing after bidding not allowed"],
+        [11] = CLM.L["Off-spec bidding not allowed"]
     }
 }
 

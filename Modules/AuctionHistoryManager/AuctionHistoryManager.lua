@@ -93,7 +93,10 @@ function AuctionHistoryManager:Initialize()
                 end
 
                 SendChatMessage(bidder ..
-                    ": " .. tostring(bid.points) .. CLM.L[" DKP "] .. "(" .. getBidTypeName(bid.type) .. ") " .. items,
+                    ": " ..
+                    tostring(bid.points) ..
+                    CLM.L[" DKP "] ..
+                    "(" .. (bid.isMain and "Main / " or "") .. getBidTypeName(bid.type) .. ") " .. items,
                     channel)
             end
             if noBids then

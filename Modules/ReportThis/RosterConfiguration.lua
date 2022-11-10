@@ -23,6 +23,7 @@ function ReportThisRosterConfiguration:New(i)
     o._.autoDecay = false
     o._.autoDecayPercent = 20
     o._.allowNegativeUpgrades = false
+    o._.mainPriority = false
 
     return o
 end
@@ -38,7 +39,8 @@ function ReportThisRosterConfiguration:fields()
         "rollDifference",
         "autoDecay",
         "autoDecayPercent",
-        "allowNegativeUpgrades"
+        "allowNegativeUpgrades",
+        "mainPriority",
     }
 end
 
@@ -58,6 +60,7 @@ local TRANSFORMS = {
     autoDecay = transform_boolean,
     autoDecayPercent = transform_number,
     allowNegativeUpgrades = transform_boolean,
+    mainPriority = transform_boolean,
 }
 
 function ReportThisRosterConfiguration:inflate(data)
@@ -151,6 +154,10 @@ function ReportThisRosterConfiguration._validate_autoDecayPercent(value)
 end
 
 function ReportThisRosterConfiguration._validate_allowNegativeUpgrades(value)
+    return IsBoolean(value)
+end
+
+function ReportThisRosterConfiguration._validate_mainPriority(value)
     return IsBoolean(value)
 end
 

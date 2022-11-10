@@ -50,20 +50,28 @@ local function HandleBid(event, playerName, command, secondParam)
 
     local accept, reason, bidType = false, nil, nil
     if value == CLM.L["cancel"] then
-        accept, reason = AuctionManager:UpdateBid(playerName, nil)
+        accept, reason = AuctionManager:UpdateBid(playerName,
+            CLM.MODELS.BiddingCommSubmitBid:New(0, CONSTANTS.BID_TYPE.CANCEL, {}))
     elseif value == CLM.L["pass"] then
-        accept, reason = AuctionManager:UpdateBid(playerName, CONSTANTS.AUCTION_COMM.BID_PASS)
+        accept, reason = AuctionManager:UpdateBid(playerName,
+            CLM.MODELS.BiddingCommSubmitBid:New(0, CONSTANTS.BID_TYPE.PASS, {}))
     elseif value == CLM.L["bonus"] then
-        accept, reason = AuctionManager:UpdateBid(playerName, 0, CONSTANTS.REPORTTHIS.BID_TYPE.BONUS)
+        accept, reason = AuctionManager:UpdateBid(playerName,
+            CLM.MODELS.BiddingCommSubmitBid:New(0, CONSTANTS.REPORTTHIS.BID_TYPE.BONUS, {}))
     elseif value == CLM.L["upgrade"] then
-        accept, reason = AuctionManager:UpdateBid(playerName, 0, CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE)
+        accept, reason = AuctionManager:UpdateBid(playerName,
+            CLM.MODELS.BiddingCommSubmitBid:New(0, CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE, {}))
     elseif value == CLM.L["offspec"] then
-        accept, reason = AuctionManager:UpdateBid(playerName, 0, CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC)
+        accept, reason = AuctionManager:UpdateBid(playerName,
+            CLM.MODELS.BiddingCommSubmitBid:New(0, CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC, {}))
+    elseif value == CLM.L["dualspec"] then
+        accept, reason = AuctionManager:UpdateBid(playerName,
+            CLM.MODELS.BiddingCommSubmitBid:New(0, CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC, {}))
     else
         local numericValue = tonumber(value)
         if type(numericValue) == "number" then
             bidType = AuctionManager:InferBidType(numericValue)
-            accept, reason = AuctionManager:UpdateBid(playerName, bidType)
+            accept, reason = AuctionManager:UpdateBid(playerName, CLM.MODELS.BiddingCommSubmitBid:New(0, bidType, {}))
         end
     end
     local reasonString = CONSTANTS.AUCTION_COMM.DENY_BID_REASONS_STRING[reason] or

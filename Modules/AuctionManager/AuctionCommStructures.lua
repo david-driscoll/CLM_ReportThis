@@ -30,7 +30,7 @@ function AuctionCommResponses:New(object, bidData, bids, passes, hidden, cantUse
         for key, value in pairs(o.l or {}) do
             local isOffspec = value.type == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or
                 value.type == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC
-            local isMain = not (string.find(value.rank, "Alt") ~= nil or string.find(value.rank, "Casual") ~= nil)
+            local isMain = CLM.MODULES.AuctionManager:RankHasPriority(value.rank)
             o.l[key].name = key
             o.l[key].total = value.points + tonumber(o.l[key].roll or "0")
             o.l[key].isMain = isMain
