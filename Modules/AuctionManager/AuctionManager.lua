@@ -1168,6 +1168,31 @@ function AuctionManager:GetEligibleBids()
                 minEligableBid = data.points
             end
         end
+
+        if hasUpgradeOrBonus then
+            for index, value in ipairs(bids) do
+                if value.isOffspec then
+                    table.remove(bids, index)
+                end
+            end
+        end
+
+        -- if hasMain then
+        --     for index, value in ipairs(bids) do
+        --         if not value.isMain then
+        --             table.remove(bids, index)
+        --         end
+        --     end
+        -- end
+
+        -- update incase one of the items has been removd
+        minEligableBid = topBid.points
+        for index, value in ipairs(bids) do
+            if minEligableBid > value.points then
+                LOG:Debug("minEligableBid: %s", minEligableBid)
+                minEligableBid = value.points
+            end
+        end
     end
 
     table.sort(bids, function(a, b) return a.name > b.name end)
