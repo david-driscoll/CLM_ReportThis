@@ -840,7 +840,7 @@ function AuctionManager:GetCurrentBidInfo()
     return self.currentBidInfo
 end
 
-function AuctionManager:ComputeCurrentBidInfo()
+function AuctionManager:ComputeCurrentBidInfo(item)
     if not CLM.MODULES.RaidManager:IsInActiveRaid() or self.raid == nil then return {
             bidded = {},
             passed = {},

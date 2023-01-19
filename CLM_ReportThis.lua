@@ -203,7 +203,7 @@ function UTILS.GetCurrentPoints(fromRosterOrRaidOrProfileOrPlayer, name)
     return selectedRoster:Standings(GUID)
 end
 
-function UTILS.CalculateItemCost(fromRosterOrRaidOrProfileOrPlayer, bidType, points, itemId)
+function UTILS.CalculateItemCost(fromRosterOrRaidOrProfileOrPlayer, bidType, points, itemId, rounding)
     local selectedRoster = getRoster(fromRosterOrRaidOrProfileOrPlayer)
     local upgradeCost = UTILS.GetUpgradeCost(selectedRoster, itemId)
     local offspecCost = UTILS.GetOffspecCost(selectedRoster, itemId)
@@ -212,7 +212,7 @@ function UTILS.CalculateItemCost(fromRosterOrRaidOrProfileOrPlayer, bidType, poi
 
     return UTILS.round(
         math.min(UTILS.GetMaxCost(selectedRoster, itemId), math.max(upgradeCost * 2, points / 2)),
-        selectedRoster:GetConfiguration("roundDecimals")
+        rounding
     )
 end
 

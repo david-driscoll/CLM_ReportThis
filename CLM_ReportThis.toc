@@ -1,8 +1,11 @@
-## Interface: 20504
+## Interface: 30401
+## Interface-Wrath: 30401
+## X-Min-Interface: 30401
+## X-Min-Interface-Wrath: 30401
 ## Title: CLM - Report This Edition
 ## Notes: Enables Report This loot rules to CLM (Ni Karma based)
 ## Author: Sithy
-## Version: v0.1.0
+## Version: v0.2.0
 ## X-License: MIT
 # OptionalDependencies: LibStub, CallbackHandler-1.0, LibDeflate, LibSerialize, LibLogger, AceAddon-3.0
 ## LoadOnDemand: 0
@@ -11,28 +14,30 @@
 
 # Addon Core
 CLM_ReportThis.lua
+Modules\AuctionManager\LedgerEntries.lua
+Modules\ReportThis\LedgerEntries.lua
 Modules\LedgerManager\ConfigLedgerManager.lua
 Modules\LedgerManager\Overrides.lua
 
 # Addon models
-Modules\AuctionManager\AuctionCommStructures.lua
-Modules\AuctionManager\LedgerEntries.lua
+# Modules\AuctionManager\AuctionCommStructures.lua
 # Modules\AuctionManager\AuctionConfiguration.lua
 
-Modules\ReportThis\LedgerEntries.lua
 Modules\ReportThis\RosterConfiguration.lua
 Modules\ReportThis\RosterManager.lua
 
 # Addon modules (Controllers)
-Modules\AuctionManager\AuctionManager.lua
-Modules\AuctionHistoryManager\AuctionHistoryManager.lua
+# Modules\AuctionManager\AuctionManager.lua
+Modules\AuctionManager\AuctionManagerBidSync.lua
+# Modules\AuctionHistoryManager\AuctionHistoryManager.lua
 
 # Addon Options and GUIs (View)
-Modules\AuctionManager\GUI.lua
-Modules\AuctionHistoryManager\GUI.lua
+# Modules\AuctionManager\GUI.lua
+Modules\AuctionManager\MultiGUI.lua
+# Modules\AuctionHistoryManager\GUI.lua
 
 # Global
-Global\GlobalChatMessageHandlers.lua
+# Global\GlobalChatMessageHandlers.lua
 Modules\StandbyStagingManager\Overrides.lua
 Modules\AutoDecay\AutoDecay.lua
 SettingsPush.lua

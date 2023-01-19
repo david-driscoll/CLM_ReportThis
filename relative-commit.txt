@@ -1,3 +1,3 @@
 relative-release
-v2.6.0
-https://github.com/ClassicLootManager/ClassicLootManager/compare/v2.6.0...master
+v3.0.0
+https://github.com/ClassicLootManager/ClassicLootManager/compare/v3.0.0...master

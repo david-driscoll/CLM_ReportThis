@@ -253,6 +253,13 @@ CLM.MODULES.ReportThisConfigLedgerManager = ConfigLedgerManager
 local oldLedgerManagerInitialize = LedgerManager.Initialize
 function LedgerManager:Initialize(...)
     ConfigLedgerManager:Initialize()
+
+    CLM.MODULES.ReportThisConfigLedgerManager:RegisterEntryType(
+        CLM.MODELS.LEDGER.REPORTTHIS.AUCTION.AuctionHistoryEntry,
+        (function(entry)
+            LOG:TraceAndCount("mutator(ReportThis.AuctionHistoryEntry)")
+        end))
+
     return oldLedgerManagerInitialize(self, ...)
 end
 
