@@ -76,6 +76,11 @@ local function SetInputAwardValue(self, value)
     UpdateAwardPrice(self)
 end
 
+local function disableInProgress()
+    local auction = CLM.MODULES.AuctionManager:GetCurrentAuctionInfo()
+    return auction:IsInProgress()
+end
+
 local function genericDisable()
     local auction = CLM.MODULES.AuctionManager:GetCurrentAuctionInfo()
     return auction:IsInProgress() or auction:IsEmpty()
@@ -111,7 +116,7 @@ local function GenerateItemOptions(self)
                     CLM.MODULES.AuctionManager:AddItemById(itemID, function(ai) self:SetVisibleAuctionItem(ai) end)
                 end
             end),
-            disabled = genericDisable,
+            disabled = disableInProgress,
             width = 1.25,
             order = 2,
             tooltipHyperlink = itemLink,
@@ -264,6 +269,7 @@ local function CreateLootList(self)
     })
     ItemList:RegisterEvents({
         OnClick = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, button, ...)
+            if not (row or realrow) then return true end -- Disable sort
             UTILS.LibStSingleSelectClickHandler(table, --[[RightClickMenu]] nil, rowFrame, cellFrame, data, cols, row,
                 realrow, column, table, button, ...)
             local _, selection = next(table:GetSelection())
@@ -275,8 +281,14 @@ local function CreateLootList(self)
                     if auction:IsInProgress() then
                         LOG:Message(CLM.L["Removing items not allowed during auction."])
                     else
-                        CLM.MODULES.AuctionManager:RemoveItemFromCurrentAuction(item)
-                        self.auctionitem = nil
+                        if IsControlKeyDown() then
+                            LOG:Message(CLM.L["Removing %s from current queue."], item:GetItemLink())
+                            CLM.MODULES.AuctionManager:RemoveItemFromCurrentAuction(item)
+                            self.auctionitem = nil
+                        else
+                            LOG:Message(CLM.L["Moving %s from current queue to pending queue."], item:GetItemLink())
+                            CLM.MODULES.AuctionManager:MoveItemToPendingList(item)
+                        end
                         self:Refresh()
                     end
                 else
@@ -318,7 +330,7 @@ local function GenerateAwardOptions(self)
             type = "execute",
             func = (function() CLM.MODULES.AuctionManager:ClearItemList() end),
             confirm = true,
-            disabled = genericDisable,
+            disabled = disableInProgress,
             width = 0.6,
             order = 0,
         },
