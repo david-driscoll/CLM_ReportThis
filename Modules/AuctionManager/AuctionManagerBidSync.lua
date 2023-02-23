@@ -131,7 +131,6 @@ HookAuctionManager("UpdateBid", function(self, name, itemId, userResponse)
     AuctionManagerBidSync:GetBidInfo(item, name, userResponse)
 end,
     function(self)
-
         AuctionManagerBidSync:UpdateBidList()
     end)
 
@@ -156,7 +155,8 @@ HookAuctionInfo(
     end
 )
 
-HookAuctionManager("StartAuction", function(self, ...) end, function(self)
+HookAuctionManager("StartAuction", function(self, ...)
+end, function(self)
     AuctionManagerBidSync.auctioneer = UTILS.whoami()
 
     local auction = self.currentAuction
@@ -164,7 +164,6 @@ HookAuctionManager("StartAuction", function(self, ...) end, function(self)
     -- LOG:Info("Sending bid info for existing bids")
     for _, item in pairs(auction:GetItems()) do
         for name, userResponse in pairs(item:GetAllResponses()) do
-
             -- LOG:Info("name %s item %s", tostring(name), tostring(item:GetItemID()))
             if auctionType == CONSTANTS.AUCTION_TYPE.ANONYMOUS_OPEN then
                 local anonomizedName = auction:GetAnonymousName(name)
@@ -178,20 +177,24 @@ HookAuctionManager("StartAuction", function(self, ...) end, function(self)
     end
 end)
 
-HookAuctionManager("StopAuctionManual", function(self, ...) end, function(self)
+HookAuctionManager("StopAuctionManual", function(self, ...)
+end, function(self)
     AuctionManagerBidSync.auctioneer = nil
 end)
 
-HookAuctionManager("HandleIncomingMessage", function(self, ...) end, function(self, message, distribution, sender)
+HookAuctionManager("HandleIncomingMessage", function(self, ...)
+end, function(self, message, distribution, sender)
     if CLM.CONSTANTS.BIDDING_COMM.TYPES[message:Type()] == nil then return end
     AuctionManagerBidSync:UpdateBidList()
 end)
 
-HookAuctionManager("RemoveItemFromCurrentAuction", function(self, ...) end, function(self, ...)
+HookAuctionManager("RemoveItemFromCurrentAuction", function(self, ...)
+end, function(self, ...)
     AuctionManagerBidSync:UpdateBidList()
 end)
 
-HookAuctionManager("ClearItemList", function(self, ...) end, function(self, ...)
+HookAuctionManager("ClearItemList", function(self, ...)
+end, function(self, ...)
     AuctionManagerBidSync:UpdateBidList()
 end)
 
@@ -334,7 +337,8 @@ function AuctionManagerBidSync:HandleStopAuction(data, sender)
 end
 
 function AuctionManagerBidSync:ComputeCurrentBidInfo()
-    if not CLM.MODULES.RaidManager:IsInActiveRaid() or self.raid == nil then return {
+    if not CLM.MODULES.RaidManager:IsInActiveRaid() or self.raid == nil then
+        return {
             bidded = {},
             passed = {},
             cantUse = {},
@@ -349,46 +353,46 @@ function AuctionManagerBidSync:ComputeCurrentBidInfo()
     local didAnyAction = {}
     -- generateInfo closure
     local _generateInfo = (function(dataDict, ignoreListOfDicts, prefix, skipAction)
-        local dataList, userCodedString = {}, ""
-        for p, _ in pairs(dataDict) do
-            local inIgnoreList = false
-            for _, d in ipairs(ignoreListOfDicts) do
-                if d[p] then
-                    inIgnoreList = true
-                    break
+            local dataList, userCodedString = {}, ""
+            for p, _ in pairs(dataDict) do
+                local inIgnoreList = false
+                for _, d in ipairs(ignoreListOfDicts) do
+                    if d[p] then
+                        inIgnoreList = true
+                        break
+                    end
+                end
+                if not inIgnoreList then
+                    table.insert(dataList, p)
+                    if not skipAction then
+                        didAnyAction[p] = true
+                    end
                 end
             end
-            if not inIgnoreList then
-                table.insert(dataList, p)
-                if not skipAction then
-                    didAnyAction[p] = true
-                end
-            end
-        end
-        return dataList
-    end)
+            return dataList
+        end)
     for p, _ in pairs(AuctionManagerBidSync:Bids()) do
         didAnyAction[p] = true
     end
     -- bidded list
     local bidded = _generateInfo(
-        AuctionManagerBidSync:Passes(),
-        { AuctionManagerBidSync:Bids() },
-        "Passed")
+            AuctionManagerBidSync:Passes(),
+            { AuctionManagerBidSync:Bids() },
+            "Passed")
     -- passess list
     local passed = _generateInfo(
-        AuctionManagerBidSync:Passes(),
-        { AuctionManagerBidSync:Bids() },
-        "Passed")
+            AuctionManagerBidSync:Passes(),
+            { AuctionManagerBidSync:Bids() },
+            "Passed")
     -- cant use actions
     local cantUse = _generateInfo(
-        AuctionManagerBidSync:CantUse(),
-        { AuctionManagerBidSync:Bids(), AuctionManagerBidSync:Passes() },
-        "Can't use")
+            AuctionManagerBidSync:CantUse(),
+            { AuctionManagerBidSync:Bids(), AuctionManagerBidSync:Passes() },
+            "Can't use")
     -- closed actions
     local closed = _generateInfo(AuctionManagerBidSync:Hidden(),
-        { AuctionManagerBidSync:Bids(), AuctionManagerBidSync:Passes(), AuctionManagerBidSync:CantUse() },
-        "Closed")
+            { AuctionManagerBidSync:Bids(), AuctionManagerBidSync:Passes(), AuctionManagerBidSync:CantUse() },
+            "Closed")
     -- no action
     local raidersDict = {}
     for _, GUID in ipairs(CLM.MODULES.RaidManager:GetRaid():Players()) do
@@ -398,10 +402,10 @@ function AuctionManagerBidSync:ComputeCurrentBidInfo()
         end
     end
     local noAction = _generateInfo(raidersDict,
-        { AuctionManagerBidSync:Bids(), AuctionManagerBidSync:Passes(), AuctionManagerBidSync:CantUse(),
-            AuctionManagerBidSync:Hidden() },
-        "No action",
-        true)
+            { AuctionManagerBidSync:Bids(), AuctionManagerBidSync:Passes(), AuctionManagerBidSync:CantUse(),
+                AuctionManagerBidSync:Hidden() },
+            "No action",
+            true)
 
     local anyAction = {}
     -- did any actions count
@@ -420,20 +424,21 @@ function AuctionManagerBidSync:ComputeCurrentBidInfo()
 end
 
 function AuctionManagerBidSync:GetUpgradeCost(raidOrRoster, itemId)
-    return UTILS.GetUpgradeCost(raidOrRoster or CLM.MODULES.RaidManager:GetRaid(), itemId)
+    return UTILS.GetUpgradeCost(raidOrRoster or getAuctionRaid(), itemId)
 end
 
 function AuctionManagerBidSync:GetOffspecCost(raidOrRoster, itemId)
-    return UTILS.GetOffspecCost(raidOrRoster or CLM.MODULES.RaidManager:GetRaid(), itemId)
+    return UTILS.GetOffspecCost(raidOrRoster or getAuctionRaid(), itemId)
 end
 
 function AuctionManagerBidSync:GetMaxCost(raidOrRoster, itemId)
-    return UTILS.GetMaxCost(raidOrRoster or CLM.MODULES.RaidManager:GetRaid(), itemId)
+    return UTILS.GetMaxCost(raidOrRoster or getAuctionRaid(), itemId)
 end
 
 local function GetMainPriority()
-    return CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(CLM.MODULES.RaidManager:GetRaid():Roster(),
-        "mainPriority")
+    local raid = getAuctionRaid()
+    local roster = raid:Roster()
+    return CLM.OPTIONS.ReportThisRosterManager:GetConfiguration(roster, "mainPriority")
 end
 
 local function RankHasPriority(rank)
@@ -447,9 +452,8 @@ local function RankHasPriority(rank)
 end
 
 local function UpdateBidInfo(raid, auctionItem, name, userResponse)
-
-    local upgradeCost = AuctionManagerBidSync:GetUpgradeCost()
-    local offspecCost = AuctionManagerBidSync:GetOffspecCost()
+    local upgradeCost = AuctionManagerBidSync:GetUpgradeCost(raid, auctionItem:GetItemID())
+    local offspecCost = AuctionManagerBidSync:GetOffspecCost(raid, auctionItem:GetItemID())
     local points = UTILS.GetCurrentPoints(raid, name)
 
     if userResponse:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS then
@@ -488,9 +492,9 @@ local function GetBidInfo(raid, auctionItem, name, userResponse)
         rank = rank,
         isMain = isMain,
         isOffspec = userResponse:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.OFFSPEC or
-            userResponse:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC,
+        userResponse:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.DUALSPEC,
         isUpgrade = userResponse:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.BONUS or
-            userResponse:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE
+        userResponse:Type() == CONSTANTS.REPORTTHIS.BID_TYPE.UPGRADE
     }
 
     UpdateBidInfo(raid, auctionItem, name, userResponse)

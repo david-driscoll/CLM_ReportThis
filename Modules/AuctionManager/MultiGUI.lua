@@ -1,48 +1,49 @@
 ---@diagnostic disable: param-type-mismatch
 -- ------------------------------- --
-local CLM       = LibStub("ClassicLootManager").CLM
+local CLM                 = LibStub("ClassicLootManager").CLM
 -- ------ CLM common cache ------- --
-local LOG       = CLM.LOG
-local CONSTANTS = CLM.CONSTANTS
-local UTILS     = CLM.UTILS
+local LOG                 = CLM.LOG
+local CONSTANTS           = CLM.CONSTANTS
+local UTILS               = CLM.UTILS
 -- ------------------------------- --
 
-local tonumber, tostring = tonumber, tostring
-local pairs, ipairs = pairs, ipairs
-local sformat, tinsert = string.format, table.insert
-local GameTooltip = GameTooltip
-local GetItemInfoInstant = GetItemInfoInstant
+local tonumber, tostring  = tonumber, tostring
+local pairs, ipairs       = pairs, ipairs
+local sformat, tinsert    = string.format, table.insert
+local GameTooltip         = GameTooltip
+local GetItemInfoInstant  = GetItemInfoInstant
 
-local ScrollingTable = LibStub("ScrollingTable")
-local AceGUI = LibStub("AceGUI-3.0")
-local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
-local AceConfigDialog = LibStub("AceConfigDialog-3.0")
+local ScrollingTable      = LibStub("ScrollingTable")
+local AceGUI              = LibStub("AceGUI-3.0")
+local AceConfigRegistry   = LibStub("AceConfigRegistry-3.0")
+local AceConfigDialog     = LibStub("AceConfigDialog-3.0")
 
-local ITEM_REGISTRY = "clm_am_item_options"
-local AUCTION_REGISTRY = "clm_am_auction_options"
-local AWARD_REGISTRY = "clm_am_award_options"
+local ITEM_REGISTRY       = "clm_am_item_options"
+local AUCTION_REGISTRY    = "clm_am_auction_options"
+local AWARD_REGISTRY      = "clm_am_award_options"
 
-local _, _, _, isElvUI = GetAddOnInfo("ElvUI")
+local _, _, _, isElvUI    = GetAddOnInfo("ElvUI")
 
 -- 3.5 columns + 20
-local BASE_WIDTH = 605 + (isElvUI and 15 or 0)
+local BASE_WIDTH          = 605 + (isElvUI and 15 or 0)
 
-local colorGreen = { r = 0.2, g = 0.93, b = 0.2, a = 1.0 }
+local colorGreen          = { r = 0.2, g = 0.93, b = 0.2, a = 1.0 }
 -- local colorYellow = {r = 0.93, g = 0.93, b = 0.2, a = 1.0}
-local colorGold = { r = 0.93, g = 0.70, b = 0.13, a = 1.0 }
-local colorTurquoise = { r = 0.2, g = 0.93, b = 0.93, a = 1.0 }
+local colorGold           = { r = 0.93, g = 0.70, b = 0.13, a = 1.0 }
+local colorTurquoise      = { r = 0.2, g = 0.93, b = 0.93, a = 1.0 }
 local colorRedTransparent = { r = 0.93, g = 0.27, b = 0.2, a = 0.3 }
 -- local colorGreenTransparent = {r = 0.2, g = 0.93, b = 0.2, a = 0.3}
 -- local colorBlueTransparent = {r = 0.2, g = 0.27, b = 0.93, a = 0.3}
 
-local highlightInvalid = UTILS.getHighlightMethod(colorRedTransparent, true)
+local highlightInvalid    = UTILS.getHighlightMethod(colorRedTransparent, true)
 
-local tooltip = CreateFrame("GameTooltip", "CLMAuctionManagerGUIDialogTooltip", UIParent, "GameTooltipTemplate")
+local tooltip             = CreateFrame("GameTooltip", "CLMAuctionManagerGUIDialogTooltip", UIParent,
+        "GameTooltipTemplate")
 
 local function InitializeDB(self)
     self.db = CLM.MODULES.Database:GUI('auction2', {
-        location = { nil, nil, "CENTER", 0, 0 }
-    })
+            location = { nil, nil, "CENTER", 0, 0 }
+        })
 end
 
 local function StoreLocation(self)
@@ -62,12 +63,12 @@ local function UpdateAwardPrice(self)
     local response = item:GetResponse(self.awardPlayer)
 
     self.awardPrice = UTILS.CalculateItemCost(
-        auction.roster,
-        response:Type(),
-        response.bidInfo.bidValue,
-        item:GetItemID(),
-        auction:GetRounding()
-    )
+            auction.roster,
+            response:Type(),
+            response.bidInfo.bidValue,
+            item:GetItemID(),
+            auction:GetRounding()
+        )
     self.awardValue = self.awardPrice
 end
 
@@ -101,7 +102,8 @@ local function GenerateItemOptions(self)
             name = "",
             type = "execute",
             image = icon,
-            func = (function() end),
+            func = (function()
+            end),
             width = 0.25,
             order = 1,
             tooltipHyperlink = itemLink,
@@ -232,7 +234,6 @@ local function GenerateItemOptions(self)
             --     order = 16
             -- },
         })
-
     end
 
     return options
@@ -301,7 +302,7 @@ local function CreateLootList(self)
         -- OnEnter handler -> on hover
         OnEnter = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
             local status = table.DefaultEvents["OnEnter"](rowFrame, cellFrame, data, cols, row, realrow, column, table,
-                ...)
+                    ...)
             local rowData = table:GetRow(realrow)
             if not rowData or not rowData.cols then return status end
             GameTooltip:SetOwner(rowFrame, "ANCHOR_LEFT")
@@ -312,7 +313,7 @@ local function CreateLootList(self)
         -- OnLeave handler -> on hover out
         OnLeave = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
             local status = table.DefaultEvents["OnLeave"](rowFrame, cellFrame, data, cols, row, realrow, column, table,
-                ...)
+                    ...)
             GameTooltip:Hide()
             return status
         end),
@@ -331,7 +332,7 @@ local function GenerateAwardOptions(self)
             func = (function() CLM.MODULES.AuctionManager:ClearItemList() end),
             confirm = true,
             disabled = disableInProgress,
-            width = 0.6,
+            width = 0.5,
             order = 0,
         },
         clear_toggle = {
@@ -341,7 +342,7 @@ local function GenerateAwardOptions(self)
             set = (function(i, v) self.removeOnAward = v and true or false end),
             get = (function(i) return self.removeOnAward end),
             disabled = genericDisable,
-            width = 0.9,
+            width = 0.8,
             order = 1,
         },
         -- award_offset = {
@@ -391,17 +392,40 @@ local function GenerateAwardOptions(self)
             end),
             confirm = (function()
                 local roster = CLM.MODULES.AuctionManager:GetCurrentAuctionInfo():GetRoster()
-                return sformat(
-                    CLM.L["Are you sure, you want to award %s to %s for %s %s?"],
-                    self.auctionItem:GetItemLink(),
-                    UTILS.ColorCodeText(self.awardPlayer, "FFD100"),
-                    tostring(self.awardValue),
-                    (roster and roster:GetPointType() == CONSTANTS.POINT_TYPE.EPGP) and CLM.L["GP"] or CLM.L["DKP"]
-                )
+                return string.format(
+                        CLM.L["Are you sure, you want to award %s to %s for %s %s?"],
+                        self.auctionItem:GetItemLink(),
+                        UTILS.ColorCodeText(self.awardPlayer, "FFD100"),
+                        tostring(self.awardValue),
+                        (roster and roster:GetPointType() == CONSTANTS.POINT_TYPE.EPGP) and CLM.L["GP"] or CLM.L["DKP"]
+                    )
             end),
             width = 0.5,
             order = 5,
             disabled = (function() return genericDisable() or not self.awardPlayer end),
+        },
+        disenchant = {
+            name = CLM.L["Disenchant"],
+            type = "execute",
+            func = (function()
+                CLM.MODULES.AuctionManager:Disenchant(self.auctionItem)
+                self.BidList:ClearSelection()
+                if self.removeOnAward then
+                    CLM.MODULES.AuctionManager:RemoveItemFromCurrentAuction(self.auctionItem)
+                    self.auctionItem = nil
+                end
+                self.awardPlayer = nil
+                self:Refresh()
+            end),
+            confirm = (function()
+                return string.format(CLM.L["Are you sure, you want to disenchant %s?"], self.auctionItem:GetItemLink())
+            end),
+            control = "CLMIconNoLabel",
+            width = 0.2,
+            order = 6,
+            image = "Interface\\Buttons\\UI-GroupLoot-DE-Up",
+            -- image = "Interface\\AddOns\\ClassicLootManager\\Media\\Buttons\\delete2.tga",
+            disabled = (function() return genericDisable() end),
         }
     }
     return options
@@ -426,6 +450,10 @@ local function CreateAwardOptions(self, width)
     AceConfigDialog:Open(AWARD_REGISTRY, AwardOptionsGroup)
 
     return AwardOptionsGroup
+end
+
+local function ST_GetPlayerClass(row)
+    return row.cols[1].value
 end
 
 local function ST_GetPlayerName(row)
@@ -459,7 +487,7 @@ local function CreateBidList(self, width)
     local totalWidth = width - 37
 
     local columns = {
-        { name = "", width = 18, DoCellUpdate = UTILS.LibStClassCellUpdate },
+        { name = "",            width = 18, DoCellUpdate = UTILS.LibStClassCellUpdate },
         { name = CLM.L["Name"], width = 76,
             comparesort = UTILS.LibStCompareSortWrapper(UTILS.LibStModifierFn)
         },
@@ -535,7 +563,7 @@ local function CreateBidList(self, width)
             if rowData and rowData.invalidReason then
                 tooltip:SetOwner(cellFrame, "ANCHOR_LEFT")
                 tooltip:AddLine(UTILS.ColorCodeText(CONSTANTS.AUCTION_COMM.DENY_BID_REASONS_STRING[rowData.invalidReason
-                    ] or CLM.L["Unknown"], "ee4444"))
+                ] or CLM.L["Unknown"], "ee4444"))
                 tooltip:Show()
             end
             return table.DefaultEvents["OnEnter"](rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
@@ -543,7 +571,7 @@ local function CreateBidList(self, width)
         -- OnLeave handler -> on hover out
         OnLeave = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
             local status = table.DefaultEvents["OnLeave"](rowFrame, cellFrame, data, cols, row, realrow, column, table,
-                ...)
+                    ...)
             local rowData = table:GetRow(realrow)
             tooltip:Hide()
             if rowData and rowData.highlightFn then
@@ -552,6 +580,7 @@ local function CreateBidList(self, width)
             return status
         end),
         OnClick = function(rowFrame, cellFrame, data, cols, row, realrow, column, table, button, ...)
+            if not (row or realrow) then return true end -- Disable sort
             UTILS.LibStSingleSelectClickHandler(table, --[[UnifiedGUI_Raids.RightClickMenu]] nil, rowFrame, cellFrame,
                 data, cols, row, realrow, column, table, button, ...)
             local _, selection = next(table:GetSelection())
@@ -572,7 +601,6 @@ local function GenerateAuctionOptions(self)
     }
     if CLM.OPTIONS.AuctionManagerBidSync:IAmTheAuctioneer() then
         options = {
-
             auction_header = {
                 name = CLM.L["Auction settings"],
                 type = "header",
@@ -608,10 +636,11 @@ local function GenerateAuctionOptions(self)
             },
             auction = {
                 name = (
-                    function() return CLM.MODULES.AuctionManager:IsAuctionInProgress() and CLM.L["Stop"] or
-                            CLM.L["Start"]
-                    end
-                    ),
+                function()
+                    return CLM.MODULES.AuctionManager:IsAuctionInProgress() and CLM.L["Stop"] or
+                        CLM.L["Start"]
+                end
+                ),
                 type = "execute",
                 func = (function()
                     if not CLM.MODULES.AuctionManager:IsAuctionInProgress() then
@@ -789,17 +818,17 @@ end
 
 local function getHighlightMethod(highlightColor)
     return (function(rowFrame, cellFrame, data, cols, row, realrow, column, fShow, table, ...)
-        table.DoCellUpdate(rowFrame, cellFrame, data, cols, row, realrow, column, fShow, table, ...)
-        local color
-        local selected = (table.selected == realrow)
-        if selected then
-            color = table:GetDefaultHighlight()
-        else
-            color = highlightColor
-        end
+            table.DoCellUpdate(rowFrame, cellFrame, data, cols, row, realrow, column, fShow, table, ...)
+            local color
+            local selected = (table.selected == realrow)
+            if selected then
+                color = table:GetDefaultHighlight()
+            else
+                color = highlightColor
+            end
 
-        table:SetHighLightColor(rowFrame, color)
-    end)
+            table:SetHighLightColor(rowFrame, color)
+        end)
 end
 
 local highlightAlt = getHighlightMethod({ r = 0.53, g = 0, b = 0.75, a = 0.3 })
@@ -820,7 +849,6 @@ local function rowColor(topBid, response, topBidIsUpgrade, topBidIsMain)
     end
 
     return color
-
 end
 
 local function BuildBidRow(item, name, response, roster, namedButtonMode)
@@ -872,20 +900,21 @@ local function BuildBidRow(item, name, response, roster, namedButtonMode)
         highlight = highlightOffspec
     end
 
-    return { cols = {
-        { value = class }, -- [1]
-        { value = name, color = classColor }, --[2]
-        { value = bidInfo.rank }, --[3]
-        { value = bidInfo.isMain and "Yes" or "No", color = rowColorValue }, --[4]
-        { value = string.lower(roster:GetFieldName(response:Type())) }, --[5]
-        -- { value =   response:Value(), text = bidTypeString, bidType = response:Type() },
-        { value = bidInfo.bidValue, color = rowColorValue }, --[5]
-        { value = response:Roll(), color = rowColorValue }, --[6]
-        { value = CLM.OPTIONS.AuctionManagerBidSync:TotalBid(response), color = rowColorValue }, --[7]
-        { value = primaryItem }, --[8]
-        { value = secondaryItem }, --[9]
-        { value = response } --[10]
-    },
+    return {
+        cols = {
+            { value = class }, -- [1]
+            { value = name,                                                 color = classColor }, --[2]
+            { value = bidInfo.rank }, --[3]
+            { value = bidInfo.isMain and "Yes" or "No",                     color = rowColorValue }, --[4]
+            { value = string.lower(roster:GetFieldName(response:Type())) }, --[5]
+            -- { value =   response:Value(), text = bidTypeString, bidType = response:Type() },
+            { value = bidInfo.bidValue,                                     color = rowColorValue }, --[5]
+            { value = response:Roll(),                                      color = rowColorValue }, --[6]
+            { value = CLM.OPTIONS.AuctionManagerBidSync:TotalBid(response), color = rowColorValue }, --[7]
+            { value = primaryItem }, --[8]
+            { value = secondaryItem }, --[9]
+            { value = response } --[10]
+        },
         invalidReason = invalidReason,
         highlightFn = highlight,
         DoCellUpdate = highlight
@@ -909,7 +938,8 @@ function AuctionManagerGUI:Refresh()
             iconColor = colorGold
             note = CLM.L["No bids"]
         end
-        itemList[#itemList + 1] = { cols = { { value = id, iconColor = iconColor, note = note }, { value = auctionItem } } }
+        itemList[#itemList + 1] = {
+            cols = { { value = id, iconColor = iconColor, note = note }, { value = auctionItem } } }
     end
     self.ItemList:SetData(itemList)
 
