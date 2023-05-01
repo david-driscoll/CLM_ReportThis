@@ -84,7 +84,7 @@ end
 
 local function genericDisable()
     local auction = CLM.MODULES.AuctionManager:GetCurrentAuctionInfo()
-    return auction:IsInProgress() or auction:IsEmpty()
+    return auction:IsInProgress() or auction:IsEmpty() or auction:IsAcceptingRolls()
 end
 
 local function GenerateItemOptions(self)
@@ -115,7 +115,11 @@ local function GenerateItemOptions(self)
             set = (function(i, v)
                 if v and GetItemInfoInstant(v) then -- validate if it is an itemLink or itemString or itemId
                     local itemID = GetItemInfoInstant(v)
-                    CLM.MODULES.AuctionManager:AddItemById(itemID, function(ai) self:SetVisibleAuctionItem(ai) end)
+                    if tostring(itemID) == v then
+                        CLM.MODULES.AuctionManager:AddItemById(itemID, function(ai) self:SetVisibleAuctionItem(ai) end)
+                    else
+                        CLM.MODULES.AuctionManager:AddItemByLink(v, function(ai) self:SetVisibleAuctionItem(ai) end)
+                    end
                 end
             end),
             disabled = disableInProgress,
@@ -306,7 +310,8 @@ local function CreateLootList(self)
             local rowData = table:GetRow(realrow)
             if not rowData or not rowData.cols then return status end
             GameTooltip:SetOwner(rowFrame, "ANCHOR_LEFT")
-            GameTooltip:SetHyperlink("item:" .. (tonumber(rowData.cols[column].value) or 0))
+            -- GameTooltip:SetHyperlink("item:" .. (tostring(rowData.cols[column].value) or 0))
+            GameTooltip:SetHyperlink(rowData.cols[column].value or "item:0")
             GameTooltip:Show()
             return status
         end),
@@ -425,7 +430,7 @@ local function GenerateAwardOptions(self)
             order = 6,
             image = "Interface\\Buttons\\UI-GroupLoot-DE-Up",
             -- image = "Interface\\AddOns\\ClassicLootManager\\Media\\Buttons\\delete2.tga",
-            disabled = (function() return genericDisable() end),
+            disabled = genericDisable,
         }
     }
     return options
@@ -611,7 +616,7 @@ local function GenerateAuctionOptions(self)
                 name = "",
                 desc = "",
                 type = "description",
-                width = 0.75,
+                width = 0.75+0.25,
                 order = 1,
             },
             time_auction = {
@@ -650,62 +655,29 @@ local function GenerateAuctionOptions(self)
                     end
                     self:Refresh()
                 end),
-                width = 1,
+                width = 0.8,
                 order = 4,
                 disabled = (function() return CLM.MODULES.AuctionManager:GetCurrentAuctionInfo():IsEmpty() end)
             },
-            -- bidding_header = {
-            --     name = CLM.L["Bidding"],
-            --     type = "header",
-            --     width = "full",
-            --     order = 10
-            -- },
-
-            -- bid_stats_info = {
-            --     name = "Info",
-            --     desc = (function()
-            --         local bidInfo = CLM.OPTIONS.AuctionManagerBidSync:ComputeCurrentBidInfo()
-            --         local passed = bidInfo.passed
-            --         local cantUse = bidInfo.cantUse
-            --         local closed = bidInfo.closed
-            --         local anyAction = bidInfo.anyAction
-            --         local noAction = bidInfo.noAction
-
-            --         -- generateInfo closure
-            --         local _generateString = (function(dataList, prefix)
-            --             local count = #dataList
-            --             local userCodedString = ""
-            --             if count > 0 then
-            --                 userCodedString = "\n\n" .. UTILS.ColorCodeText(prefix .. ": ", "EAB221")
-            --                 for i = 1, count do
-            --                     local profile = CLM.MODULES.ProfileManager:GetProfileByName(dataList[i])
-            --                     local coloredName = dataList[i]
-            --                     if profile then
-            --                         coloredName = UTILS.ColorCodeText(profile:Name(),
-            --                             UTILS.GetClassColor(profile:Class()).hex)
-            --                     end
-            --                     userCodedString = userCodedString .. coloredName
-            --                     if i ~= count then
-            --                         userCodedString = userCodedString .. ", "
-            --                     end
-            --                 end
-            --             end
-            --             return userCodedString
-            --         end)
-
-            --         local stats = string.format("%d/%d %s", #anyAction, bidInfo.total, "total")
-            --         -- Result
-            --         return stats
-            --             .. _generateString(passed, "Passed")
-            --             .. _generateString(cantUse, "Can't Use")
-            --             .. _generateString(closed, "Closed")
-            --             .. _generateString(noAction, "No Action")
-            --     end),
+            -- roll = {
+            --     name = (function() return (CLM.MODULES.AuctionManager:IsAcceptingRolls() and CLM.L["Stop"] or CLM.L["Start"])  .. " " .. CLM.L["Roll"] end),
             --     type = "execute",
-            --     func = (function() end),
-            --     image = "Interface\\Icons\\INV_Misc_QuestionMark",
-            --     width = 0.3,
-            --     order = 16
+            --     func = (function()
+            --         if CLM.MODULES.AuctionManager:IsAcceptingRolls() then
+            --             CLM.MODULES.AuctionManager:StopRoll()
+            --         else
+            --             CLM.MODULES.AuctionManager:StartRoll(self.auctionItem:GetItemID())
+            --         end
+            --     end),
+            --     control = "CLMIconNoLabel",
+            --     width = 0.2,
+            --     order = 4.5,
+            --     image = "Interface\\Buttons\\UI-GroupLoot-Dice-Up",
+            --     disabled = (function()
+            --         return CLM.MODULES.AuctionManager:GetCurrentAuctionInfo():IsEmpty() or
+            --                 not self.auctionItem or
+            --                 CLM.MODULES.AuctionManager:IsAuctionInProgress()
+            --     end)
             -- },
         }
     end
@@ -932,14 +904,13 @@ function AuctionManagerGUI:Refresh()
     end
 
     local itemList = {}
-    for id, auctionItem in pairs(auction:GetItems()) do
+    for _, auctionItem in pairs(auction:GetItems()) do
         local iconColor, note
         if not auctionItem:HasValidBids() and auction:IsComplete() then
             iconColor = colorGold
             note = CLM.L["No bids"]
         end
-        itemList[#itemList + 1] = {
-            cols = { { value = id, iconColor = iconColor, note = note }, { value = auctionItem } } }
+        itemList[#itemList+1] = { cols = { {value = auctionItem:GetItemLink(), iconColor = iconColor, note = note }, {value = auctionItem} }}
     end
     self.ItemList:SetData(itemList)
 

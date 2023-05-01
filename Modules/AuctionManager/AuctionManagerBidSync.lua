@@ -659,7 +659,6 @@ function AuctionManagerBidSync:ClearBids()
         total = 0,
         waitingOn = 0,
     }
-    self:SendRollEnd()
     self:UpdateBidList()
 end
 
