@@ -484,83 +484,12 @@ local function getResponseColumn(table, row)
     return row.cols[col].value
 end
 
-local function CreateBidList(self, width)
+local function CreateBidList(self)
     local BidList = AceGUI:Create("CLMLibScrollingTable")
     self.BidList = BidList
     BidList:SetDisplayRows(12, 18)
+    self:BuildColumns()
 
-    local totalWidth = width - 37
-
-    local columns = {
-        { name = "",            width = 18, DoCellUpdate = UTILS.LibStClassCellUpdate },
-        { name = CLM.L["Name"], width = 76,
-            comparesort = UTILS.LibStCompareSortWrapper(UTILS.LibStModifierFn)
-        },
-        { name = CLM.L["Rank"], width = 100 },
-        { name = CLM.L["Main"], width = 35 },
-        { name = CLM.L["Type"], width = 56, color = colorGreen,
-            -- sort = ScrollingTable.SORT_DSC,
-            sortnext = 4,
-            align = "CENTER",
-            DoCellUpdate = (function(rowFrame, frame, data, cols, row, realrow, column, fShow, table, ...)
-                table.DoCellUpdate(rowFrame, frame, data, cols, row, realrow, column, fShow, table, ...)
-                frame.text:SetText(data[realrow].cols[column].text or data[realrow].cols[column].value)
-            end)
-        },
-        { name = CLM.L["Points"], width = 50, color = { r = 0.93, g = 0.70, b = 0.13, a = 1.0 },
-            -- sort = ScrollingTable.SORT_DSC, -- This Sort disables nexsort of others relying on this column
-            sortnext = 5,
-            align = "CENTER"
-        },
-        { name = CLM.L["Roll"], width = 40, color = { r = 0.93, g = 0.70, b = 0.13, a = 1.0 },
-            sortnext = 2,
-            align = "CENTER"
-        },
-        { name = CLM.L["Total"], width = 50, color = { r = 0.0, g = 0.93, b = 0.0, a = 1.0 },
-            sort = ScrollingTable.SORT_DSC,
-            -- sortnext = 5,
-            comparesort = (function(s, rowa, rowb, sortbycol)
-                -- Get data
-                local a1, b1 = s:GetCell(rowa, sortbycol), s:GetCell(rowb, sortbycol)
-                local a1_value, b1_value = a1.value, b1.value
-                local r1, r2 = getResponseColumn(s, rowa), getResponseColumn(s, rowb)
-
-                -- Modify Data
-                if r1.bidInfo.isMain and r1.bidInfo.isUpgrade then
-                    a1.value = a1.value + 100000
-                elseif not r1.bidInfo.isMain and r1.bidInfo.isUpgrade then
-                    a1.value = a1.value + 10000
-                end
-                if r2.bidInfo.isMain and r2.bidInfo.isUpgrade then
-                    b1.value = b1.value + 100000
-                elseif not r2.bidInfo.isMain and r2.bidInfo.isUpgrade then
-                    b1.value = b1.value + 10000
-                end
-
-                -- sort
-                local result       = s:CompareSort(rowa, rowb, sortbycol)
-                -- restore
-                a1.value, b1.value = a1_value, b1_value
-                -- return
-                return result
-            end),
-            sortnext = 2,
-            align = "CENTER"
-        },
-        { name = "", width = 18, DoCellUpdate = UTILS.LibStItemCellUpdate },
-        { name = "", width = 18, DoCellUpdate = UTILS.LibStItemCellUpdate },
-    }
-    local currentWidth = 0
-    for _, c in ipairs(columns) do
-        currentWidth = currentWidth + c.width
-    end
-    local expand = UTILS.round(((totalWidth - currentWidth) / (#columns - 3)))
-    for i, _ in ipairs(columns) do
-        if columns[i].name ~= "" then
-            columns[i].width = columns[i].width + expand
-        end
-    end
-    BidList:SetDisplayCols(columns)
     BidList:RegisterEvents({
         -- OnEnter handler -> on hover
         OnEnter = (function(rowFrame, cellFrame, data, cols, row, realrow, column, table, ...)
@@ -727,15 +656,15 @@ local function Create(self)
 
     local ItemList = CreateLootList(self)
     local listWidth = ItemList:GetWidth()
-    local dataWidth = BASE_WIDTH - listWidth - 20
-    f:SetUserData("table", { columns = { listWidth, dataWidth }, alignV = "top" })
+    self.dataWidth = BASE_WIDTH - listWidth - 20
+    f:SetUserData("table", { columns = {listWidth, self.dataWidth}, alignV =  "top" })
     local DataGroup = AceGUI:Create("SimpleGroup")
     DataGroup:SetLayout("Flow")
-    DataGroup:SetWidth(dataWidth)
-    DataGroup:AddChild(CreateItemOptions(self, dataWidth))
-    DataGroup:AddChild(CreateAuctionOptions(self, dataWidth))
-    DataGroup:AddChild(CreateBidList(self, dataWidth))
-    DataGroup:AddChild(CreateAwardOptions(self, dataWidth))
+    DataGroup:SetWidth(self.dataWidth)
+    DataGroup:AddChild(CreateItemOptions(self, self.dataWidth))
+    DataGroup:AddChild(CreateAuctionOptions(self, self.dataWidth))
+    DataGroup:AddChild(CreateBidList(self, self.dataWidth))
+    DataGroup:AddChild(CreateAwardOptions(self, self.dataWidth))
 
     f:AddChild(ItemList)
     f:AddChild(DataGroup)
@@ -767,6 +696,8 @@ function AuctionManagerGUI:Initialize()
     if not CLM.MODULES.ACL:IsTrusted() then return end
     -- Database
     InitializeDB(self)
+    -- External
+    self.externalColumns = {}
     -- Create GUIs
     Create(self)
     -- Events
@@ -775,6 +706,99 @@ function AuctionManagerGUI:Initialize()
     RegisterSlash(self)
     -- Done
     self._initialized = true
+end
+
+function AuctionManagerGUI:BuildColumns()
+    local totalWidth = self.dataWidth - 67
+
+    local columns = {
+        { name = "",            width = 18, DoCellUpdate = UTILS.LibStClassCellUpdate },
+        { name = CLM.L["Name"], width = 76,
+            comparesort = UTILS.LibStCompareSortWrapper(UTILS.LibStModifierFn)
+        },
+        { name = CLM.L["Rank"], width = 100 },
+        { name = CLM.L["Main"], width = 35 },
+        { name = CLM.L["Type"], width = 56, color = colorGreen,
+            -- sort = ScrollingTable.SORT_DSC,
+            sortnext = 4,
+            align = "CENTER",
+            DoCellUpdate = (function(rowFrame, frame, data, cols, row, realrow, column, fShow, table, ...)
+                table.DoCellUpdate(rowFrame, frame, data, cols, row, realrow, column, fShow, table, ...)
+                frame.text:SetText(data[realrow].cols[column].text or data[realrow].cols[column].value)
+            end)
+        },
+        { name = CLM.L["Points"], width = 50, color = { r = 0.93, g = 0.70, b = 0.13, a = 1.0 },
+            -- sort = ScrollingTable.SORT_DSC, -- This Sort disables nexsort of others relying on this column
+            sortnext = 5,
+            align = "CENTER"
+        },
+        { name = CLM.L["Roll"], width = 40, color = { r = 0.93, g = 0.70, b = 0.13, a = 1.0 },
+            sortnext = 2,
+            align = "CENTER"
+        },
+        { name = CLM.L["Total"], width = 50, color = { r = 0.0, g = 0.93, b = 0.0, a = 1.0 },
+            sort = ScrollingTable.SORT_DSC,
+            -- sortnext = 5,
+            comparesort = (function(s, rowa, rowb, sortbycol)
+                -- Get data
+                local a1, b1 = s:GetCell(rowa, sortbycol), s:GetCell(rowb, sortbycol)
+                local a1_value, b1_value = a1.value, b1.value
+                local r1, r2 = getResponseColumn(s, rowa), getResponseColumn(s, rowb)
+
+                -- Modify Data
+                if r1.bidInfo.isMain and r1.bidInfo.isUpgrade then
+                    a1.value = a1.value + 100000
+                elseif not r1.bidInfo.isMain and r1.bidInfo.isUpgrade then
+                    a1.value = a1.value + 10000
+                end
+                if r2.bidInfo.isMain and r2.bidInfo.isUpgrade then
+                    b1.value = b1.value + 100000
+                elseif not r2.bidInfo.isMain and r2.bidInfo.isUpgrade then
+                    b1.value = b1.value + 10000
+                end
+
+                -- sort
+                local result       = s:CompareSort(rowa, rowb, sortbycol)
+                -- restore
+                a1.value, b1.value = a1_value, b1_value
+                -- return
+                return result
+            end),
+            sortnext = 2,
+            align = "CENTER"
+        },
+    }
+
+    -- Add external columns
+    for _, externalColumn in ipairs(self.externalColumns) do
+        columns[#columns+1] = externalColumn.column
+    end
+    -- Items
+    columns[#columns+1] = {name = "", width = 18, align = "CENTER", DoCellUpdate = UTILS.LibStItemCellUpdate }
+    columns[#columns+1] = {name = "", width = 18, align = "CENTER", DoCellUpdate = UTILS.LibStItemCellUpdate }
+    columns[#columns+1] = {name = "", width = 18, align = "CENTER", DoCellUpdate = UTILS.LibStItemCellUpdate }
+    columns[#columns+1] = {name = "", width = 18, align = "CENTER", DoCellUpdate = UTILS.LibStItemCellUpdate }
+    columns[#columns+1] = {name = "", width = 18, align = "CENTER", DoCellUpdate = UTILS.LibStItemCellUpdate }
+    -- Done
+
+    local currentWidth = 0
+    for _, c in ipairs(columns) do
+        currentWidth = currentWidth + c.width
+    end
+    local expand = UTILS.round(((totalWidth-currentWidth)/(#columns-3)))
+    for i, _ in ipairs(columns) do
+        if columns[i].name ~= "" then
+            columns[i].width = columns[i].width + expand
+        end
+    end
+
+    self.BidList:SetDisplayCols(columns)
+end
+
+
+function AuctionManagerGUI:RegisterExternalColumn(column, callback)
+    self.externalColumns[#self.externalColumns+1] = {column = column, callback = callback}
+    self:BuildColumns()
 end
 
 function AuctionManagerGUI:SetVisibleAuctionItem(auctionItem)
@@ -823,7 +847,7 @@ local function rowColor(topBid, response, topBidIsUpgrade, topBidIsMain)
     return color
 end
 
-local function BuildBidRow(item, name, response, roster, namedButtonMode)
+local function BuildBidRow(item, name, response, roster, namedButtonMode, externalData)
     local profile = CLM.MODULES.ProfileManager:GetProfileByName(name)
     local class, classColor, current = "", nil, 0
     if profile then
@@ -845,12 +869,12 @@ local function BuildBidRow(item, name, response, roster, namedButtonMode)
         bidColor = colorTurquoise
     end
     local items = response:Items()
-    local primaryItem = items[1]
-    local secondaryItem = items[2]
-    if (not primaryItem) and secondaryItem then
-        primaryItem = secondaryItem
-        secondaryItem = nil
-    end
+    -- local primaryItem = items[1]
+    -- local secondaryItem = items[2]
+    -- if (not primaryItem) and secondaryItem then
+    --     primaryItem = secondaryItem
+    --     secondaryItem = nil
+    -- end
 
     local highlight, invalidReason
     if response:IsInvalid() then
@@ -872,8 +896,7 @@ local function BuildBidRow(item, name, response, roster, namedButtonMode)
         highlight = highlightOffspec
     end
 
-    return {
-        cols = {
+    local data = {
             { value = class }, -- [1]
             { value = name,                                                 color = classColor }, --[2]
             { value = bidInfo.rank }, --[3]
@@ -883,14 +906,37 @@ local function BuildBidRow(item, name, response, roster, namedButtonMode)
             { value = bidInfo.bidValue,                                     color = rowColorValue }, --[5]
             { value = response:Roll(),                                      color = rowColorValue }, --[6]
             { value = CLM.OPTIONS.AuctionManagerBidSync:TotalBid(response), color = rowColorValue }, --[7]
-            { value = primaryItem }, --[8]
-            { value = secondaryItem }, --[9]
-            { value = response } --[10]
-        },
+        }
+
+    -- External Data
+    for _, dataRow in ipairs(externalData) do
+        data[#data+1] = dataRow
+    end
+    -- Items
+    local items = response:Items()
+    local emptyItems = 5-#items
+    for _=1,emptyItems do
+        data[#data+1] = {}
+    end
+    for _, item in ipairs(items) do
+        data[#data+1] = {value = item}
+    end
+    data[#data+1] =         { value = response } --[10]
+    -- Done
+    return {
+        cols = data,
         invalidReason = invalidReason,
         highlightFn = highlight,
         DoCellUpdate = highlight
     }
+end
+
+local function GetExternalColumnData(self, auction, item, name, response)
+    local data = {}
+    for _,externalColumn in pairs(self.externalColumns) do
+        data[#data+1] = externalColumn.callback(auction, item, name, response)
+    end
+    return data
 end
 
 function AuctionManagerGUI:Refresh()
@@ -921,7 +967,8 @@ function AuctionManagerGUI:Refresh()
         local roster = auction:GetRoster()
         for name, response in pairs(item:GetAllResponses()) do
             if not CONSTANTS.BID_TYPE_HIDDEN[response:Type()] then -- TODO configurable?
-                bidList[#bidList + 1] = BuildBidRow(item, name, response, roster, namedButtonsMode)
+                local externalData = GetExternalColumnData(self, auction, item, name, response)
+                bidList[#bidList+1] = BuildBidRow(item, name, response, roster, namedButtonsMode, externalData)
             end
         end
     end
